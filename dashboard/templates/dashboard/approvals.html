@@ -1,0 +1,29 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Approvals - Shorts Auto-Poster{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-slate-100">Approvals Gate</h1>
+            <p class="text-sm text-slate-400 mt-1">Review upcoming posts before they dispatch. Videos automatically post once countdown completes.</p>
+        </div>
+
+        {% if count > 0 %}
+        <form action="/approvals/approve-all" method="POST" hx-post="/approvals/approve-all">
+            {% csrf_token %}
+            <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-600/30 flex items-center space-x-2 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>Approve All ({{ count }})</span>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Live Poll Container (every 10s) -->
+    <div id="approvals-container" hx-get="/approvals" hx-trigger="every 10s" hx-swap="innerHTML">
+        {% include "dashboard/partials/approval_cards.html" %}
+    </div>
+</div>
+{% endblock %}

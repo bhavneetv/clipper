@@ -1,0 +1,525 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Settings - Shorts Auto-Poster{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-4xl">
+    <div>
+        <h1 class="text-2xl font-black text-slate-100">Global Settings</h1>
+        <p class="text-sm text-slate-400 mt-1">Configure automated posting rules, caption fallbacks, limits, and notifications.</p>
+    </div>
+
+    {% if success_msg %}
+    <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm font-semibold rounded-xl">
+        {{ success_msg }}
+    </div>
+    {% endif %}
+
+    {% if errors %}
+    <div class="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-semibold rounded-xl space-y-1">
+        {% for field, err in errors.items %}
+        <div>&bull; {{ err }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Real-time Storage Usage Gauges -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- Local Storage Usage Card -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Local Hard Drive</span>
+                {% if storage_stats.active_backend == 'local' %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Active</span>
+                {% endif %}
+            </div>
+            <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.local.used_mb }} MB</div>
+            <p class="text-xs text-slate-500 mt-1">{{ storage_stats.local.file_count }} files in <code class="text-slate-400 font-mono">./inbox</code></p>
+        </div>
+
+        <!-- Supabase Usage Card -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Supabase Storage</span>
+                {% if storage_stats.active_backend == 'supabase' %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>
+                {% endif %}
+            </div>
+            <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.supabase.used_mb }} / {{ storage_stats.supabase.limit_mb }} MB</div>
+            <p class="text-xs text-slate-500 mt-1">Bucket: <span class="text-slate-300 font-mono">{{ storage_stats.supabase.bucket }}</span> (1 GB Free)</p>
+        </div>
+
+        <!-- Cloudinary Usage Card -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cloudinary CDN</span>
+                {% if storage_stats.active_backend == 'cloudinary' %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">Active</span>
+                {% endif %}
+            </div>
+            <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.cloudinary.used_mb }} / 25,000 MB</div>
+            <p class="text-xs text-slate-500 mt-1">25 GB Free tier (No CC required)</p>
+        </div>
+    </div>
+
+    <form method="POST" action="/settings" class="space-y-8" x-data="{
+        selectedBackend: '{{ s.storage_backend|default:storage_stats.active_backend }}',
+        copied: false
+    }">
+        {% csrf_token %}
+
+        <!-- Storage Backend Switcher -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+            <div class="border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-100">Storage Backend & Bucket Switcher</h3>
+                <p class="text-xs text-slate-400 mt-1">Choose where video files are imported, stored, and streamed from.</p>
+            </div>
+
+            <!-- Radio Selection Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Local Mode Option -->
+                <label class="p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between"
+                       :class="selectedBackend === 'local' ? 'bg-indigo-950/20 border-indigo-500/50 ring-1 ring-indigo-500/30' : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-bold text-sm text-slate-200">Local PC Mode</span>
+                            <input type="radio" name="storage_backend" value="local" x-model="selectedBackend" class="text-indigo-600 focus:ring-0">
+                        </div>
+                        <p class="text-xs text-slate-400">Reads directly from local hard drive (<code class="font-mono text-slate-300">./inbox</code>). Free & instant scanning.</p>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-slate-800 text-[11px] text-amber-400 font-medium">
+                        &bull; YouTube Native Scheduling (Turn PC off)<br>
+                        &bull; Instagram disabled (needs cloud URL)
+                    </div>
+                </label>
+
+                <!-- Cloudinary Option -->
+                <label class="p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between"
+                       :class="selectedBackend === 'cloudinary' ? 'bg-indigo-950/20 border-indigo-500/50 ring-1 ring-indigo-500/30' : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-bold text-sm text-slate-200">Cloudinary</span>
+                            <input type="radio" name="storage_backend" value="cloudinary" x-model="selectedBackend" class="text-indigo-600 focus:ring-0">
+                        </div>
+                        <p class="text-xs text-slate-400">Cloud video hosting with 25 GB free forever. No credit card required.</p>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-slate-800 text-[11px] text-emerald-400 font-medium">
+                        &bull; YouTube Shorts & Instagram Reels both enabled<br>
+                        &bull; Fast public streaming CDN
+                    </div>
+                </label>
+
+                <!-- Supabase Option -->
+                <label class="p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between"
+                       :class="selectedBackend === 'supabase' ? 'bg-indigo-950/20 border-indigo-500/50 ring-1 ring-indigo-500/30' : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-bold text-sm text-slate-200">Supabase Storage</span>
+                            <input type="radio" name="storage_backend" value="supabase" x-model="selectedBackend" class="text-indigo-600 focus:ring-0">
+                        </div>
+                        <p class="text-xs text-slate-400">Public bucket in your Supabase project (1 GB free plan).</p>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-slate-800 text-[11px] text-emerald-400 font-medium">
+                        &bull; YouTube & Instagram both enabled<br>
+                        &bull; Auto-cleanup on post supported
+                    </div>
+                </label>
+            </div>
+
+            <!-- Hint to API Credentials -->
+            <div class="mt-4 p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl text-xs text-slate-400 flex items-center justify-between">
+                <span>Configure your Cloudinary, Supabase, SMTP, and YouTube API credentials in the <strong>API Keys Vault</strong> below.</span>
+                <a href="#api-credentials" class="text-indigo-400 hover:text-indigo-300 font-semibold shrink-0 ml-3">View & Edit Keys &darr;</a>
+            </div>
+        </div>
+
+        <!-- External Cron Trigger (Keep-Alive) Section -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div class="border-b border-slate-800 pb-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-base font-bold text-slate-100">External Cron Job (Keep-Alive & Auto-Posting)</h3>
+                    <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Render / Cloud</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">
+                    Free cloud hosting (like Render Free Tier) sleeps after 15 minutes of inactivity, which pauses background timers.
+                    Add this cron trigger URL to a free external scheduler (like <a href="https://cron-job.org" target="_blank" class="text-indigo-400 hover:underline">cron-job.org</a>) to run <strong>every 5 minutes</strong>.
+                </p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Your Secret Cron Trigger URL</label>
+                <div class="flex items-center space-x-2">
+                    <input type="text" readonly value="{{ cron_url }}" id="cron-url-field"
+                           class="flex-1 px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs font-mono select-all">
+                    <button type="button" @click="navigator.clipboard.writeText('{{ cron_url }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                            class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow transition shrink-0">
+                        <span x-show="!copied">Copy URL</span>
+                        <span x-show="copied" x-cloak class="text-emerald-300 font-bold">&check; Copied!</span>
+                    </button>
+                </div>
+                <div class="mt-2 text-[11px] text-slate-500 space-y-0.5">
+                    <p>&bull; <strong>What it does:</strong> Wakes the server, scans your inbox for new videos, updates approval gates, and uploads any scheduled post whose time has arrived.</p>
+                    <p>&bull; <strong>Recommended Interval:</strong> Every 5 minutes (via cron-job.org, Upstash, or GitHub Actions).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. Default Captions & Priority Explanation -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div class="border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-100">1. Default Captions & Placeholders</h3>
+                <p class="text-xs text-slate-400 mt-1">
+                    Used when no video-specific or platform-specific caption exists. Supported placeholders:
+                    <code class="text-indigo-400 font-mono">{filename}</code> (file name without extension) and
+                    <code class="text-indigo-400 font-mono">{number}</code> (database sequential integer).
+                </p>
+                <div class="mt-2 text-[11px] text-slate-500 font-mono bg-slate-900/60 p-2 rounded-lg">
+                    Priority order: Video's Own Caption &rarr; Platform Caption &rarr; Default Caption
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Default Title (YouTube)</label>
+                <input type="text" name="default_title" value="{{ s.default_caption.title|default:'' }}"
+                       placeholder="e.g. My Amazing Short #{number}"
+                       class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Default Description / Instagram Caption</label>
+                <textarea name="default_desc" rows="3" placeholder="Default description and text for Instagram..."
+                          class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">{{ s.default_caption.description|default:'' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Default Hashtags (space-separated)</label>
+                <input type="text" name="default_hashtags" value="{% if s.default_caption.hashtags %}{{ s.default_caption.hashtags|join:' ' }}{% endif %}"
+                       placeholder="shorts reels viral daily"
+                       class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            </div>
+        </div>
+
+        <!-- 2. Platform Overrides -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <div class="border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-100">2. Platform-Specific Defaults (Optional)</h3>
+                <p class="text-xs text-slate-400 mt-1">Leave empty to use the Global Defaults above.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- YouTube Specific -->
+                <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                    <span class="font-bold text-xs text-red-400 uppercase tracking-wider block">YouTube Only</span>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Title</label>
+                        <input type="text" name="yt_title" value="{{ s.caption_yt.title|default:'' }}"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Description</label>
+                        <textarea name="yt_desc" rows="2" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">{{ s.caption_yt.description|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Hashtags</label>
+                        <input type="text" name="yt_hashtags" value="{% if s.caption_yt.hashtags %}{{ s.caption_yt.hashtags|join:' ' }}{% endif %}"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">
+                    </div>
+                </div>
+
+                <!-- Facebook Specific -->
+                <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                    <span class="font-bold text-xs text-blue-400 uppercase tracking-wider block">Facebook Page Only</span>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Title</label>
+                        <input type="text" name="fb_title" value="{{ s.caption_fb.title|default:'' }}"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Description / Post Text</label>
+                        <textarea name="fb_desc" rows="2" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">{{ s.caption_fb.description|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Hashtags</label>
+                        <input type="text" name="fb_hashtags" value="{% if s.caption_fb.hashtags %}{{ s.caption_fb.hashtags|join:' ' }}{% endif %}"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">
+                    </div>
+                </div>
+
+                <!-- Instagram Specific -->
+                <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                    <span class="font-bold text-xs text-pink-400 uppercase tracking-wider block">Instagram Only</span>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Caption</label>
+                        <textarea name="ig_desc" rows="4" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">{{ s.caption_ig.description|default:'' }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Hashtags</label>
+                        <input type="text" name="ig_hashtags" value="{% if s.caption_ig.hashtags %}{{ s.caption_ig.hashtags|join:' ' }}{% endif %}"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Scheduling & Automation Rules -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <h3 class="text-base font-bold text-slate-100 border-b border-slate-800 pb-3">3. Schedule & Timezone</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Daily Posting Times (HH:MM)</label>
+                    <input type="text" name="post_times" value="{{ s.post_times|join:' ' }}"
+                           placeholder="10:00 14:00 19:00"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                    <span class="text-[11px] text-slate-500 mt-1 block">Separated by spaces or commas</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Timezone (IANA Name)</label>
+                    <input type="text" name="tz" value="{{ s.tz }}"
+                           placeholder="Asia/Kolkata"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                    <span class="text-[11px] text-slate-500 mt-1 block">e.g. Asia/Kolkata, America/New_York, UTC</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Approval Wait (Min)</label>
+                    <input type="number" name="approval_timeout_min" value="{{ s.approval_timeout_min }}" min="0"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                    <span class="text-[11px] text-slate-500 mt-1 block">0 = Post immediately</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Max YouTube / Day</label>
+                    <input type="number" name="max_per_day_yt" value="{{ s.max_per_day_yt }}" min="1"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Max Facebook / Day</label>
+                    <input type="number" name="max_per_day_fb" value="{{ s.max_per_day_fb|default:10 }}" min="1"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Max Instagram / Day</label>
+                    <input type="number" name="max_per_day_ig" value="{{ s.max_per_day_ig }}" min="1"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Retention & Limits -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <h3 class="text-base font-bold text-slate-100 border-b border-slate-800 pb-3">4. Limits, Retention & Polling</h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Retention Days</label>
+                    <input type="number" name="retention_days" value="{{ s.retention_days }}" min="1"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                    <span class="text-[11px] text-slate-500 mt-1 block">Auto-delete file X days after post</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Storage Limit (GB)</label>
+                    <input type="number" name="storage_limit_gb" value="{{ s.storage_limit_gb }}" min="1"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                    <span class="text-[11px] text-slate-500 mt-1 block">Used for UI gauge & warnings</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Inbox Poll Interval (Min)</label>
+                    <input type="number" name="poll_interval_min" value="{{ s.poll_interval_min }}" min="1"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">YouTube Privacy</label>
+                <select name="youtube_privacy" class="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm w-48">
+                    <option value="public" {% if s.youtube_privacy == 'public' %}selected{% endif %}>Public</option>
+                    <option value="unlisted" {% if s.youtube_privacy == 'unlisted' %}selected{% endif %}>Unlisted</option>
+                    <option value="private" {% if s.youtube_privacy == 'private' %}selected{% endif %}>Private</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 5. Email Notifications & SMTP Server -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+            <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-slate-100">5. Email Alerts & SMTP Server</h3>
+                    <p class="text-xs text-slate-400 mt-1">Configure SMTP settings for failure warnings and post success notifications.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="notify_enabled" name="notify_enabled" {% if s.notify_enabled %}checked{% endif %}
+                           class="w-4 h-4 rounded bg-slate-900 border-slate-800 text-indigo-600 focus:ring-0">
+                    <label for="notify_enabled" class="text-xs font-bold text-slate-300">Enable Notifications</label>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 items-end">
+                <div class="flex-1 w-full">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Notification Recipient Email</label>
+                    <input type="email" name="notify_email" value="{{ s.notify_email|default:'' }}" placeholder="your-email@example.com"
+                           class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-100 text-sm">
+                </div>
+                <button type="button" hx-post="/notifications/test"
+                        class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition shrink-0">
+                    Send Test Email
+                </button>
+            </div>
+
+            <!-- SMTP Server Settings -->
+            <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-4">
+                <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">SMTP Server Credentials</h4>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">SMTP Host</label>
+                        <input type="text" name="smtp_host" value="{{ s.smtp_host|default:'' }}" placeholder="smtp.gmail.com"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">SMTP Port</label>
+                        <input type="number" name="smtp_port" value="{{ s.smtp_port|default:587 }}" placeholder="587"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">SMTP User / Username</label>
+                        <input type="text" name="smtp_user" value="{{ s.smtp_user|default:'' }}" placeholder="user@gmail.com"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div x-data="{ show: false }">
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">SMTP Password / App Password</label>
+                        <div class="relative">
+                            <input :type="show ? 'text' : 'password'" name="smtp_password" value="{{ s.smtp_password|default:'' }}" placeholder="16-character app password"
+                                   class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono pr-14">
+                            <button type="button" @click="show = !show" class="absolute right-1.5 top-1 px-2 py-1 text-[10px] text-slate-400 hover:text-slate-200 bg-slate-900 rounded font-mono" x-text="show ? 'Hide' : 'Show'"></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">From Email</label>
+                        <input type="text" name="smtp_from" value="{{ s.smtp_from|default:'' }}" placeholder="user@gmail.com"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                    <div class="flex items-center pt-5 space-x-2">
+                        <input type="checkbox" id="smtp_starttls" name="smtp_starttls" {% if s.smtp_starttls %}checked{% endif %}
+                               class="w-4 h-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0">
+                        <label for="smtp_starttls" class="text-xs text-slate-300">Enable STARTTLS</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. API Keys & Service Credentials Vault (Stored in Database) -->
+        <div id="api-credentials" class="bg-slate-950 border border-indigo-500/30 rounded-2xl p-6 shadow-xl space-y-6">
+            <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h3 class="text-base font-bold text-slate-100">6. API Keys & Service Credentials</h3>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">DB Stored</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">All service keys are saved in your database and take effect immediately without server restarts.</p>
+                </div>
+            </div>
+
+            <!-- Cloudinary Section -->
+            <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-xs text-indigo-400 uppercase tracking-wider block">Cloudinary API Credentials</span>
+                    <span class="text-[11px] text-slate-500">25 GB Free Video Storage</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Cloud Name</label>
+                        <input type="text" name="cloudinary_cloud_name" value="{{ s.cloudinary_cloud_name|default:'' }}"
+                               placeholder="e.g. dyqlcy4nz" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">API Key</label>
+                        <input type="text" name="cloudinary_api_key" value="{{ s.cloudinary_api_key|default:'' }}"
+                               placeholder="e.g. 787573633254749" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                    <div x-data="{ show: false }">
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">API Secret</label>
+                        <div class="relative">
+                            <input :type="show ? 'text' : 'password'" name="cloudinary_api_secret" value="{{ s.cloudinary_api_secret|default:'' }}"
+                                   placeholder="API Secret string" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono pr-14">
+                            <button type="button" @click="show = !show" class="absolute right-1.5 top-1 px-2 py-1 text-[10px] text-slate-400 hover:text-slate-200 bg-slate-900 rounded font-mono" x-text="show ? 'Hide' : 'Show'"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Supabase Section -->
+            <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-xs text-emerald-400 uppercase tracking-wider block">Supabase Storage Credentials</span>
+                    <span class="text-[11px] text-slate-500">Public Bucket CDN</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Supabase Project URL</label>
+                        <input type="text" name="supabase_url" value="{{ s.supabase_url|default:'' }}"
+                               placeholder="https://xyz.supabase.co" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                    <div x-data="{ show: false }">
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Service Role Key</label>
+                        <div class="relative">
+                            <input :type="show ? 'text' : 'password'" name="supabase_service_role_key" value="{{ s.supabase_service_role_key|default:'' }}"
+                                   placeholder="eyJhbGciOi..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono pr-14">
+                            <button type="button" @click="show = !show" class="absolute right-1.5 top-1 px-2 py-1 text-[10px] text-slate-400 hover:text-slate-200 bg-slate-900 rounded font-mono" x-text="show ? 'Hide' : 'Show'"></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Bucket Name</label>
+                        <input type="text" name="supabase_bucket" value="{{ s.supabase_bucket|default:'shorts' }}"
+                               placeholder="shorts" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                </div>
+            </div>
+
+            <!-- YouTube / Google OAuth Section -->
+            <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-xs text-red-400 uppercase tracking-wider block">Google / YouTube OAuth Credentials</span>
+                    <span class="text-[11px] text-slate-500">Google Cloud Console</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Google Client ID</label>
+                        <input type="text" name="google_client_id" value="{{ s.google_client_id|default:'' }}"
+                               placeholder="xyz.apps.googleusercontent.com" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                    <div x-data="{ show: false }">
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Google Client Secret</label>
+                        <div class="relative">
+                            <input :type="show ? 'text' : 'password'" name="google_client_secret" value="{{ s.google_client_secret|default:'' }}"
+                                   placeholder="GOCSPX-..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono pr-14">
+                            <button type="button" @click="show = !show" class="absolute right-1.5 top-1 px-2 py-1 text-[10px] text-slate-400 hover:text-slate-200 bg-slate-900 rounded font-mono" x-text="show ? 'Hide' : 'Show'"></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Authorized Redirect URI</label>
+                        <input type="text" name="google_redirect_uri" value="{{ s.google_redirect_uri|default:'' }}"
+                               placeholder="http://localhost:8080/accounts/youtube/callback" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end pt-4">
+            <button type="submit" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition">
+                Save All Settings & Keys
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

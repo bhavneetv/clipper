@@ -1,0 +1,151 @@
+<div class="space-y-6">
+    {% for item in items %}
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col lg:flex-row gap-6 relative overflow-hidden"
+         x-data="countdownTimer({{ item.seconds_remaining }})">
+        
+        <!-- Video Preview -->
+        <div class="w-full lg:w-48 h-64 lg:h-72 bg-black rounded-xl overflow-hidden shrink-0 border border-slate-800 relative group flex items-center justify-center">
+            {% if item.video.public_url %}
+            <video src="{{ item.video.public_url }}" controls class="w-full h-full object-cover"></video>
+            {% else %}
+            <span class="text-xs text-slate-500">No URL</span>
+            {% endif %}
+            <div class="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur text-[11px] font-mono font-bold text-slate-300">
+                #{{ item.video.seq }}
+            </div>
+        </div>
+
+        <!-- Info & Captions -->
+        <div class="flex-1 flex flex-col justify-between space-y-4">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+                            <span>{{ item.video.file_name }}</span>
+                            {% if item.video.held %}
+                            <span class="px-2 py-0.5 text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md">ON HOLD</span>
+                            {% endif %}
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            Scheduled: {{ item.video.scheduled_at|date:"M d, H:i" }} IST &bull; Duration: {{ item.video.duration_s|default:"?" }}s &bull; Res: {{ item.video.width }}x{{ item.video.height }}
+                        </p>
+                    </div>
+
+                    <!-- Countdown Badge -->
+                    <div class="flex items-center space-x-2 bg-indigo-950/60 border border-indigo-500/30 px-3.5 py-1.5 rounded-xl">
+                        <svg class="w-4 h-4 text-indigo-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-xs font-semibold text-slate-300">Auto-posts in:</span>
+                        <span class="font-mono text-sm font-black text-indigo-300" x-text="formatted"></span>
+                    </div>
+                </div>
+
+                <!-- Resolved Captions Tabs / Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mt-3">
+                    <!-- YouTube Box -->
+                    <div class="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="font-bold text-red-400 flex items-center space-x-1">
+                                <span>YouTube Shorts</span>
+                            </span>
+                            <span class="text-[10px] uppercase font-semibold text-slate-500">Source: {{ item.yt_source }}</span>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-400 block mb-0.5">Title:</span>
+                            <p class="text-slate-200 font-medium">{{ item.yt_caption.title }}</p>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-400 block mb-0.5">Description:</span>
+                            <p class="text-slate-300 whitespace-pre-line line-clamp-3">{{ item.yt_caption.description }}</p>
+                        </div>
+                        {% if item.yt_caption.tags %}
+                        <div>
+                            <span class="font-semibold text-slate-400 block mb-0.5">Tags:</span>
+                            <p class="text-indigo-400">{{ item.yt_caption.tags|join:", " }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Instagram Box -->
+                    <div class="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3.5 space-y-2">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                            <span class="font-bold text-pink-400 flex items-center space-x-1">
+                                <span>Instagram Reels</span>
+                            </span>
+                            <span class="text-[10px] uppercase font-semibold text-slate-500">Source: {{ item.ig_source }}</span>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-400 block mb-0.5">Caption:</span>
+                            <p class="text-slate-200 whitespace-pre-line line-clamp-4">{{ item.ig_caption }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/60">
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Approve Now -->
+                    <form action="/videos/{{ item.video.id }}/approve" method="POST" hx-post="/videos/{{ item.video.id }}/approve">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow transition flex items-center space-x-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span>Approve Now</span>
+                        </button>
+                    </form>
+
+                    <!-- Edit Caption -->
+                    <a href="/videos/{{ item.video.id }}/" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition">
+                        Edit Caption
+                    </a>
+
+                    <!-- Hold / Release -->
+                    {% if item.video.held %}
+                    <form action="/videos/{{ item.video.id }}/release" method="POST" hx-post="/videos/{{ item.video.id }}/release">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-1.5 bg-amber-600/30 hover:bg-amber-600/40 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/30 transition">
+                            Release Hold
+                        </button>
+                    </form>
+                    {% else %}
+                    <form action="/videos/{{ item.video.id }}/hold" method="POST" hx-post="/videos/{{ item.video.id }}/hold">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold rounded-lg border border-slate-700 transition">
+                            Hold
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+
+                <!-- Platform Skips -->
+                <div class="flex items-center space-x-2">
+                    <form action="/videos/{{ item.video.id }}/skip" method="POST" hx-post="/videos/{{ item.video.id }}/skip">
+                        {% csrf_token %}
+                        <input type="hidden" name="platform" value="yt">
+                        <button type="submit" class="px-2.5 py-1 bg-slate-900 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 text-[11px] font-medium rounded-lg border border-slate-800 hover:border-rose-800/40 transition">
+                            Skip YouTube
+                        </button>
+                    </form>
+
+                    <form action="/videos/{{ item.video.id }}/skip" method="POST" hx-post="/videos/{{ item.video.id }}/skip">
+                        {% csrf_token %}
+                        <input type="hidden" name="platform" value="ig">
+                        <button type="submit" class="px-2.5 py-1 bg-slate-900 hover:bg-rose-950/40 text-pink-400 hover:text-pink-300 text-[11px] font-medium rounded-lg border border-slate-800 hover:border-pink-800/40 transition">
+                            Skip Instagram
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="p-12 text-center bg-slate-950 border border-slate-800 rounded-2xl">
+        <svg class="w-12 h-12 mx-auto mb-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h4 class="text-sm font-semibold text-slate-300">No videos awaiting approval</h4>
+        <p class="text-xs text-slate-500 mt-1">When a video's scheduled time begins, it appears here for admin review.</p>
+    </div>
+    {% endfor %}
+</div>

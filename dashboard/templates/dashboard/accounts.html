@@ -1,0 +1,186 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Accounts - Shorts Auto-Poster{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-6xl">
+    <div>
+        <h1 class="text-2xl font-black text-slate-100">Social Accounts</h1>
+        <p class="text-sm text-slate-400 mt-1">Connect your YouTube, Facebook Pages, and Instagram accounts for multi-platform distribution.</p>
+    </div>
+
+    {% if error %}
+    <div class="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-semibold rounded-xl">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- YouTube Account Card -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-6">
+            <div>
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-red-500 font-black text-lg">YouTube</span>
+                        <span class="text-xs text-slate-400">Shorts API</span>
+                    </div>
+                    {% if yt_acc and yt_acc.status == 'connected' %}
+                    <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Connected</span>
+                    {% else %}
+                    <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Disconnected</span>
+                    {% endif %}
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <span class="text-slate-500 block mb-0.5">Channel Name:</span>
+                        <span class="font-bold text-slate-200 text-sm">
+                            {% if yt_acc and yt_acc.status == 'connected' %}
+                                {{ yt_acc.account_name|default:"Connected Channel" }}
+                            {% else %}
+                                Not Connected
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block mb-0.5">Today's Quota Estimate:</span>
+                        <span class="font-semibold text-slate-300">{{ yt_quota_used }} / {{ yt_quota_max }} units ({{ yt_today_count }} uploads)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-2 pt-4 border-t border-slate-800/60">
+                <a href="/accounts/youtube/connect" class="w-full py-2.5 px-4 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition text-center block">
+                    {% if yt_acc and yt_acc.status == 'connected' %}Reconnect Google Account{% else %}Connect with Google{% endif %}
+                </a>
+                {% if yt_acc and yt_acc.status == 'connected' %}
+                <button type="button" hx-post="/accounts/youtube/test" class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl border border-slate-800 transition">
+                    Test Channel Access
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Facebook Page Card -->
+        <div class="bg-slate-950 border border-blue-500/30 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 px-3 py-0.5 bg-blue-600/20 border-b border-l border-blue-500/30 text-[10px] font-bold text-blue-400 rounded-bl-lg">
+                Recommended
+            </div>
+            <div>
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-blue-500 font-black text-lg">Facebook</span>
+                        <span class="text-xs text-slate-400">Pages & Reels</span>
+                    </div>
+                    {% if fb_acc and fb_acc.status == 'connected' %}
+                    <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Connected</span>
+                    {% else %}
+                    <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Disconnected</span>
+                    {% endif %}
+                </div>
+
+                <div class="space-y-3 text-xs mb-4">
+                    <div>
+                        <span class="text-slate-500 block mb-0.5">Page Name:</span>
+                        <span class="font-bold text-slate-200 text-sm">
+                            {% if fb_acc and fb_acc.status == 'connected' %}
+                                {{ fb_acc.account_name|default:"Connected Page" }}
+                            {% else %}
+                                Not Connected
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if fb_acc and fb_acc.fb_page_id %}
+                    <div>
+                        <span class="text-slate-500 block mb-0.5">Page ID:</span>
+                        <span class="font-mono text-slate-300">{{ fb_acc.fb_page_id }}</span>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <span class="text-slate-500 block mb-0.5">Today's Posts:</span>
+                        <span class="font-semibold text-slate-300">{{ fb_today_count }} published</span>
+                    </div>
+                </div>
+
+                <!-- Connect / Update Form -->
+                <form action="/accounts/facebook/token" method="POST" class="space-y-3 pt-3 border-t border-slate-800/60 text-xs">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Facebook Page ID</label>
+                        <input type="text" name="page_id" value="{{ fb_acc.fb_page_id|default:'' }}" required placeholder="e.g. 1029384756..."
+                               class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 text-xs font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Page Access Token</label>
+                        <input type="password" name="access_token" required placeholder="EAA..."
+                               class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 text-xs font-mono">
+                    </div>
+                    <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition">
+                        Save Facebook Page
+                    </button>
+                </form>
+            </div>
+
+            {% if fb_acc and fb_acc.status == 'connected' %}
+            <button type="button" hx-post="/accounts/facebook/test" class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl border border-slate-800 transition">
+                Test Facebook Page Access
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Instagram Account Card -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-6">
+            <div>
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-pink-500 font-black text-lg">Instagram</span>
+                        <span class="text-xs text-slate-400">Reels API</span>
+                    </div>
+                    {% if ig_acc and ig_acc.status == 'connected' %}
+                    <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Connected</span>
+                    {% else %}
+                    <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Disconnected</span>
+                    {% endif %}
+                </div>
+
+                <div class="space-y-3 text-xs mb-4">
+                    <div>
+                        <span class="text-slate-500 block mb-0.5">Account Handle:</span>
+                        <span class="font-bold text-slate-200 text-sm">@{{ ig_acc.account_name|default:"Not Connected" }}</span>
+                    </div>
+                    {% if ig_acc and ig_acc.expires_at %}
+                    <div>
+                        <span class="text-slate-500 block mb-0.5">Token Expiration:</span>
+                        <span class="font-semibold text-slate-300">{{ ig_acc.expires_at|date:"M d, Y" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Connect / Update Form -->
+                <form action="/accounts/instagram/token" method="POST" class="space-y-3 pt-3 border-t border-slate-800/60 text-xs">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Instagram User ID</label>
+                        <input type="text" name="ig_user_id" value="{{ ig_acc.ig_user_id|default:'' }}" required placeholder="178414..."
+                               class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 text-xs font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Long-Lived Access Token</label>
+                        <input type="password" name="access_token" required placeholder="EAAB..."
+                               class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-200 text-xs font-mono">
+                    </div>
+                    <button type="submit" class="w-full py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs rounded-xl shadow transition">
+                        Save Instagram Credentials
+                    </button>
+                </form>
+            </div>
+
+            {% if ig_acc and ig_acc.status == 'connected' %}
+            <button type="button" hx-post="/accounts/instagram/test" class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl border border-slate-800 transition">
+                Test Instagram Graph Access
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

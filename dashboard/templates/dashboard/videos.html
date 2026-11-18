@@ -1,0 +1,396 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Videos - Shorts Auto-Poster{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="videoUploadManager()">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-slate-100">Video Library</h1>
+            <p class="text-sm text-slate-400 mt-1">Manage, filter, and track all imported and scheduled videos.</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button @click="uploadOpen = !uploadOpen" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold rounded-xl border border-slate-700 flex items-center space-x-2 transition">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>Upload Videos</span>
+            </button>
+            <form action="/videos/scan" method="POST" hx-post="/videos/scan" hx-indicator="#scan-spinner">
+                {% csrf_token %}
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center space-x-2 transition">
+                    <svg id="scan-spinner" class="w-4 h-4 animate-spin htmx-indicator" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Scan Inbox Now</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Direct Storage Upload Panel -->
+    <div x-show="uploadOpen" x-cloak class="p-6 bg-slate-950 border border-slate-800 rounded-2xl space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <h3 class="font-bold text-sm text-slate-200">Video Upload (Inbox)</h3>
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider
+                    {% if storage_backend == 'local' %}bg-amber-500/10 text-amber-400 border border-amber-500/20
+                    {% elif storage_backend == 'cloudinary' %}bg-sky-500/10 text-sky-400 border border-sky-500/20
+                    {% else %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% endif %}">
+                    {{ storage_backend }} mode
+                </span>
+            </div>
+            <span class="text-xs text-slate-500">
+                {% if storage_backend == 'local' %}
+                Saves directly to local folder (./inbox) &bull; Native YouTube scheduling
+                {% elif storage_backend == 'cloudinary' %}
+                Uploads to Cloudinary (25 GB free CDN)
+                {% else %}
+                Uploads to Supabase Storage bucket
+                {% endif %}
+            </span>
+        </div>
+
+        {% if storage_backend == 'local' %}
+        <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center space-x-2">
+            <svg class="w-4 h-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span><strong>Local PC Mode Active:</strong> Videos are read from your local hard drive. YouTube pre-uploads with native scheduling so your PC can be turned off! Instagram is disabled in Local Mode (requires cloud URL).</span>
+        </div>
+        {% endif %}
+        <!-- Dropzone (Hidden when uploading) -->
+        <div x-show="!uploading"
+             class="border-2 border-dashed border-slate-800 hover:border-indigo-500/60 rounded-xl p-8 text-center cursor-pointer transition"
+             @dragover.prevent=""
+             @drop.prevent="handleFiles($event.dataTransfer.files)">
+            <input type="file" id="fileInput" multiple accept="video/mp4" class="hidden" @change="handleFiles($event.target.files)">
+            <label for="fileInput" class="cursor-pointer block">
+                <svg class="w-10 h-10 mx-auto text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p class="text-sm font-semibold text-slate-300">Click to select MP4 files or drag and drop</p>
+                <p class="text-xs text-slate-500 mt-1">Up to 50 MB per file &bull; 9:16 vertical &bull; Under 90s</p>
+            </label>
+        </div>
+
+        <!-- Active Upload Progress Card -->
+        <div x-show="uploading" class="bg-slate-900/90 border border-indigo-500/30 rounded-xl p-5 space-y-4 shadow-xl">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400" x-text="`Uploading file ${currentFileIndex} of ${totalFilesCount}`"></p>
+                        <p class="text-sm font-bold text-slate-100 truncate max-w-xs sm:max-w-md" x-text="currentFileName"></p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xl font-black text-indigo-400 font-mono tracking-tight" x-text="`${filePercent}%`"></div>
+                    <div class="text-[11px] text-slate-400 font-mono" x-text="uploadSpeed"></div>
+                </div>
+            </div>
+
+            <!-- Single File Progress Bar -->
+            <div class="space-y-1.5">
+                <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800">
+                    <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-full rounded-full transition-all duration-150 ease-out"
+                         :style="`width: ${filePercent}%`"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-400">
+                    <span x-text="uploadStatusText"></span>
+                    <span class="font-mono text-slate-300" x-text="`${fileUploadedMB} MB / ${fileTotalMB} MB`"></span>
+                </div>
+            </div>
+
+            <!-- Multi-file batch progress (when totalFilesCount > 1) -->
+            <div x-show="totalFilesCount > 1" class="pt-3 border-t border-slate-800/80 space-y-1">
+                <div class="flex justify-between text-xs text-slate-400">
+                    <span>Overall Batch Progress</span>
+                    <span class="font-bold text-slate-300 font-mono" x-text="`${batchPercent}%`"></span>
+                </div>
+                <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div class="bg-indigo-500/80 h-full rounded-full transition-all duration-200"
+                         :style="`width: ${batchPercent}%`"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Alert -->
+        <div x-show="errorMessage" class="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold rounded-xl flex items-center justify-between">
+            <span x-text="errorMessage"></span>
+            <button @click="errorMessage = ''" class="text-rose-400 hover:text-white ml-2 text-sm font-bold">&times;</button>
+        </div>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="bg-slate-950/70 border border-slate-800 p-4 rounded-xl flex flex-wrap gap-3 items-center justify-between">
+        <form method="GET" action="/videos" class="flex flex-wrap items-center gap-3 w-full"
+              hx-get="/videos" hx-target="#video-table-body" hx-trigger="change, keyup delay:400ms from:#q-input">
+            
+            <input type="text" id="q-input" name="q" value="{{ q_search }}" placeholder="Search title or filename..."
+                   class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-48 sm:w-64">
+
+            <select name="status" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="">All Statuses</option>
+                {% for code, label in STATUS_CHOICES %}
+                <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="platform" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="">All Platforms</option>
+                <option value="youtube" {% if platform_filter == 'youtube' %}selected{% endif %}>YouTube</option>
+                <option value="instagram" {% if platform_filter == 'instagram' %}selected{% endif %}>Instagram</option>
+            </select>
+
+            <div class="flex items-center space-x-1">
+                <span class="text-xs text-slate-500">From:</span>
+                <input type="date" name="from" value="{{ date_from }}" class="px-2 py-1 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300">
+            </div>
+
+            <div class="flex items-center space-x-1">
+                <span class="text-xs text-slate-500">To:</span>
+                <input type="date" name="to" value="{{ date_to }}" class="px-2 py-1 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300">
+            </div>
+
+            <a href="/videos" class="text-xs text-slate-400 hover:text-white underline ml-auto">Reset</a>
+        </form>
+    </div>
+
+    <!-- Videos Table -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50">
+                        <th class="py-3 px-4">Video / File</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4">Platforms</th>
+                        <th class="py-3 px-4">Scheduled</th>
+                        <th class="py-3 px-4">Specs</th>
+                        <th class="py-3 px-4">Retention</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="video-table-body">
+                    {% include "dashboard/partials/video_rows.html" %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="p-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div>
+                Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total)
+            </div>
+            <div class="flex space-x-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if q_search %}&q={{ q_search }}{% endif %}" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300">Previous</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if q_search %}&q={{ q_search }}{% endif %}" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function getCsrfToken() {
+    const input = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (input && input.value) return input.value;
+    const match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+function videoUploadManager() {
+    return {
+        uploadOpen: false,
+        uploading: false,
+        currentFileIndex: 0,
+        totalFilesCount: 0,
+        currentFileName: '',
+        filePercent: 0,
+        fileUploadedMB: '0.0',
+        fileTotalMB: '0.0',
+        batchPercent: 0,
+        batchTotalBytes: 0,
+        completedBytesTotal: 0,
+        uploadSpeed: '',
+        uploadStatusText: '',
+        errorMessage: '',
+
+        async handleFiles(files) {
+            if (!files || files.length === 0) return;
+
+            const validFiles = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.name.toLowerCase().endsWith('.mp4')) {
+                    validFiles.push(file);
+                }
+            }
+
+            if (validFiles.length === 0) {
+                alert('Please select valid .mp4 video files.');
+                return;
+            }
+
+            this.uploading = true;
+            this.errorMessage = '';
+            this.totalFilesCount = validFiles.length;
+            this.completedBytesTotal = 0;
+
+            let batchTotal = 0;
+            for (const f of validFiles) {
+                batchTotal += f.size;
+            }
+            this.batchTotalBytes = batchTotal;
+            this.batchPercent = 0;
+
+            const csrfToken = getCsrfToken();
+
+            for (let i = 0; i < validFiles.length; i++) {
+                const file = validFiles[i];
+                this.currentFileIndex = i + 1;
+                this.currentFileName = file.name;
+                this.filePercent = 0;
+                this.fileUploadedMB = '0.0';
+                this.fileTotalMB = (file.size / (1024 * 1024)).toFixed(1);
+                this.uploadSpeed = 'Calculating...';
+                this.uploadStatusText = 'Requesting secure upload authorization...';
+
+                try {
+                    // 1. Get presigned upload URL from backend
+                    const form = new FormData();
+                    form.append('file_name', file.name);
+
+                    const presignRes = await fetch('/uploads/presign', {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                        body: form
+                    });
+                    const presignData = await presignRes.json();
+                    if (!presignRes.ok || presignData.error) {
+                        throw new Error(presignData.error || `Upload authorization failed (${presignRes.status})`);
+                    }
+
+                    this.uploadStatusText = 'Uploading video...';
+
+                    // 2. Upload file via XHR with real-time onprogress tracking
+                    await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        const isLocal = (presignData.backend === 'local');
+                        const isCloudinary = (presignData.backend === 'cloudinary');
+                        const method = presignData.method || (isLocal || isCloudinary ? 'POST' : 'PUT');
+
+                        xhr.open(method, presignData.signed_url, true);
+
+                        let uploadPayload;
+                        if (isLocal) {
+                            xhr.setRequestHeader('X-CSRFToken', csrfToken);
+                            const localForm = new FormData();
+                            localForm.append('file', file);
+                            localForm.append('file_name', file.name);
+                            uploadPayload = localForm;
+                        } else if (isCloudinary) {
+                            const cForm = new FormData();
+                            cForm.append('file', file);
+                            cForm.append('api_key', presignData.api_key);
+                            cForm.append('timestamp', presignData.timestamp);
+                            cForm.append('signature', presignData.token);
+                            cForm.append('folder', presignData.folder);
+                            uploadPayload = cForm;
+                        } else {
+                            // Supabase
+                            xhr.setRequestHeader('Content-Type', 'video/mp4');
+                            uploadPayload = file;
+                        }
+
+                        let lastLoaded = 0;
+                        let lastTime = performance.now();
+
+                        xhr.upload.onprogress = (e) => {
+                            if (e.lengthComputable && e.total > 0) {
+                                const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+                                this.filePercent = pct;
+                                this.fileUploadedMB = (e.loaded / (1024 * 1024)).toFixed(1);
+                                this.fileTotalMB = (e.total / (1024 * 1024)).toFixed(1);
+
+                                const totalLoadedAll = this.completedBytesTotal + e.loaded;
+                                if (this.batchTotalBytes > 0) {
+                                    this.batchPercent = Math.min(99, Math.round((totalLoadedAll / this.batchTotalBytes) * 100));
+                                }
+
+                                const now = performance.now();
+                                const dt = (now - lastTime) / 1000;
+                                if (dt >= 0.3) {
+                                    const bytesDiff = e.loaded - lastLoaded;
+                                    const speed = bytesDiff / dt;
+                                    if (speed >= 1024 * 1024) {
+                                        this.uploadSpeed = `${(speed / (1024 * 1024)).toFixed(1)} MB/s`;
+                                    } else {
+                                        this.uploadSpeed = `${(speed / 1024).toFixed(0)} KB/s`;
+                                    }
+                                    lastLoaded = e.loaded;
+                                    lastTime = now;
+                                }
+                            }
+                        };
+
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                this.filePercent = 100;
+                                this.fileUploadedMB = this.fileTotalMB;
+                                this.completedBytesTotal += file.size;
+                                this.uploadStatusText = 'Saved in inbox!';
+                                resolve();
+                            } else {
+                                reject(new Error(`Storage rejected upload: HTTP ${xhr.status} ${xhr.statusText}`));
+                            }
+                        };
+
+                        xhr.onerror = () => reject(new Error('Network disconnected or upload failed. Check your connection.'));
+                        xhr.onabort = () => reject(new Error('Upload was aborted.'));
+
+                        xhr.send(uploadPayload);
+                    });
+
+                } catch (err) {
+                    console.error('Upload error:', err);
+                    this.errorMessage = `Upload failed for "${file.name}": ${err.message}`;
+                    this.uploading = false;
+                    return;
+                }
+            }
+
+            // All files completed successfully
+            this.filePercent = 100;
+            this.batchPercent = 100;
+            this.uploadStatusText = 'All uploads complete! Scanning inbox to import videos...';
+
+            try {
+                await fetch('/videos/scan', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+            } catch (e) {
+                console.warn('Scan trigger error:', e);
+            }
+
+            // Reload library
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
+        }
+    };
+}
+</script>
+{% endblock %}

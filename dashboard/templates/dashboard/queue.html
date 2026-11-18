@@ -1,0 +1,149 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Queue - Shorts Auto-Poster{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header & Pause Controls -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-slate-100">Scheduled Queue</h1>
+            <p class="text-sm text-slate-400 mt-1">Drag and drop rows to reorder. Slots automatically reassign on next scheduler tick.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Global Pause -->
+            <form action="/queue/pause" method="POST" hx-post="/queue/pause">
+                {% csrf_token %}
+                <input type="hidden" name="scope" value="all">
+                <button type="submit" class="px-3 py-1.5 text-xs font-bold rounded-xl border transition flex items-center space-x-1.5
+                    {% if paused %}bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30{% else %}bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700{% endif %}">
+                    <span>{% if paused %}&#9654; Resume All{% else %}&#10074;&#10074; Pause All{% endif %}</span>
+                </button>
+            </form>
+
+            <!-- YouTube Pause -->
+            <form action="/queue/pause" method="POST" hx-post="/queue/pause">
+                {% csrf_token %}
+                <input type="hidden" name="scope" value="yt">
+                <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-xl border transition flex items-center space-x-1.5
+                    {% if paused_yt %}bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30{% else %}bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800{% endif %}">
+                    <span>{% if paused_yt %}Resume YouTube{% else %}Pause YouTube{% endif %}</span>
+                </button>
+            </form>
+
+            <!-- Instagram Pause -->
+            <form action="/queue/pause" method="POST" hx-post="/queue/pause">
+                {% csrf_token %}
+                <input type="hidden" name="scope" value="ig">
+                <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-xl border transition flex items-center space-x-1.5
+                    {% if paused_ig %}bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30{% else %}bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800{% endif %}">
+                    <span>{% if paused_ig %}Resume Instagram{% else %}Pause Instagram{% endif %}</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if paused %}
+    <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm font-medium flex items-center space-x-2">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <span>Global queue dispatch and auto-approval are currently <strong>PAUSED</strong>.</span>
+    </div>
+    {% endif %}
+
+    <!-- Reorderable Queue List -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <span>Drag rows by the handle to change upcoming release sequence.</span>
+            <span id="reorder-status" class="text-indigo-400 font-semibold hidden">Saving new sequence...</span>
+        </div>
+
+        <ul id="queue-sortable-list" class="divide-y divide-slate-800/60">
+            {% for video in videos %}
+            <li data-id="{{ video.id }}" class="p-4 hover:bg-slate-900/50 flex items-center justify-between gap-4 transition select-none">
+                <div class="flex items-center space-x-4">
+                    <!-- Drag Handle -->
+                    <div class="cursor-grab text-slate-600 hover:text-slate-300 p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                        </svg>
+                    </div>
+
+                    <span class="font-mono text-xs font-bold text-slate-500 w-8">#{{ video.seq }}</span>
+
+                    <div>
+                        <a href="/videos/{{ video.id }}/" class="font-semibold text-slate-200 hover:text-indigo-400 text-sm block">
+                            {{ video.yt_title|default:video.file_name }}
+                        </a>
+                        <span class="text-xs text-slate-500">{{ video.file_name }}</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-6 text-xs">
+                    <!-- Scheduled Time -->
+                    <div class="text-right">
+                        {% if video.scheduled_at %}
+                        <span class="font-semibold text-slate-300 block">{{ video.scheduled_at|date:"M d, H:i" }} IST</span>
+                        <span class="text-[11px] text-slate-500">Slot Assigned</span>
+                        {% else %}
+                        <span class="text-amber-400 font-semibold block">Queued</span>
+                        <span class="text-[11px] text-slate-500">Awaiting next tick</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Post Now Button -->
+                    <form action="/videos/{{ video.id }}/post-now" method="POST">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-bold rounded-lg border border-indigo-500/40 transition">
+                            Post Now
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% empty %}
+            <li class="p-12 text-center text-slate-500 text-sm">
+                No videos currently in queue. Upload new videos in the Videos tab.
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const el = document.getElementById('queue-sortable-list');
+    if (!el) return;
+
+    new Sortable(el, {
+        handle: '.cursor-grab',
+        animation: 150,
+        ghostClass: 'bg-indigo-950/40',
+        onEnd: function () {
+            const statusEl = document.getElementById('reorder-status');
+            if (statusEl) statusEl.classList.remove('hidden');
+
+            const order = Array.from(el.children).map(item => item.getAttribute('data-id')).filter(Boolean);
+            const formData = new FormData();
+            order.forEach(id => formData.append('ids[]', id));
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            fetch('/queue/reorder', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            }).then(() => {
+                if (statusEl) {
+                    statusEl.innerText = 'Saved! Reloading slots...';
+                    setTimeout(() => window.location.reload(), 600);
+                }
+            }).catch(err => {
+                alert('Error saving order: ' + err.message);
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

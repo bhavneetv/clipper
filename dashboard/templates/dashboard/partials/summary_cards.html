@@ -1,0 +1,143 @@
+<!-- Summary Cards Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <!-- Posted Today -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+            <span>Posted Today</span>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Live</span>
+        </div>
+        <div class="text-3xl font-black text-slate-100">{{ posted_today_total }}</div>
+        <div class="flex items-center space-x-3 text-xs text-slate-500 mt-2">
+            <span>YT: <strong class="text-slate-300">{{ posted_today_yt }}</strong></span>
+            <span>&bull;</span>
+            <span>IG: <strong class="text-slate-300">{{ posted_today_ig }}</strong></span>
+        </div>
+    </div>
+
+    <!-- In Queue / Scheduled -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+            <span>In Pipeline</span>
+            <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Active</span>
+        </div>
+        <div class="text-3xl font-black text-slate-100">{{ in_queue_count }}</div>
+        <div class="text-xs text-slate-500 mt-2">
+            Awaiting Approval: <strong class="text-indigo-400">{{ awaiting_count }}</strong>
+        </div>
+    </div>
+
+    <!-- Posted All-Time / Month -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+            <span>Total Published</span>
+            <span class="text-slate-500 font-mono text-[11px]">All-Time</span>
+        </div>
+        <div class="text-3xl font-black text-slate-100">{{ posted_all_total }}</div>
+        <div class="text-xs text-slate-500 mt-2">
+            This Month: <strong class="text-slate-300">{{ posted_month_total }}</strong> &bull; Week: <strong class="text-slate-300">{{ posted_week_total }}</strong>
+        </div>
+    </div>
+
+    <!-- Storage Bucket Card -->
+    <div class="bg-slate-950 border {% if storage_warn %}border-amber-500/50 bg-amber-950/10{% else %}border-slate-800{% endif %} rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+            <span>Storage Used</span>
+            {% if storage_warn %}
+            <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase tracking-wider animate-pulse">80%+ WARNING</span>
+            {% else %}
+            <span class="text-slate-500 text-[11px] font-mono">{{ storage_percent }}%</span>
+            {% endif %}
+        </div>
+        <div class="text-3xl font-black text-slate-100">{{ used_gb }} <span class="text-base font-medium text-slate-500">/ {{ limit_gb }} GB</span></div>
+        <div class="w-full bg-slate-900 rounded-full h-1.5 mt-3 overflow-hidden">
+            <div class="h-1.5 rounded-full {% if storage_warn %}bg-amber-500{% else %}bg-indigo-500{% endif %}" style="width: {{ storage_percent }}%"></div>
+        </div>
+        <div class="text-[11px] text-slate-500 mt-1.5">Free: {{ free_gb }} GB</div>
+    </div>
+</div>
+
+<!-- Health and Next Posts Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+    <!-- Next 5 Scheduled Posts -->
+    <div class="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-200">Next Upcoming Posts</h3>
+            <a href="/queue" class="text-xs text-indigo-400 hover:underline">View Queue &rarr;</a>
+        </div>
+        <div class="divide-y divide-slate-800/60">
+            {% for p in next_posts %}
+            <div class="py-3 flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-3">
+                    <span class="font-mono text-slate-500 font-bold">#{{ p.seq }}</span>
+                    <div>
+                        <a href="/videos/{{ p.id }}/" class="font-semibold text-slate-200 hover:text-indigo-400 block truncate max-w-[240px]">
+                            {{ p.yt_title|default:p.file_name }}
+                        </a>
+                        <span class="text-[11px] text-slate-500">{{ p.file_name }}</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="font-semibold text-slate-300 block">{{ p.scheduled_at|date:"M d, H:i" }} IST</span>
+                    <div class="flex items-center space-x-1.5 text-[10px] text-slate-500 justify-end">
+                        <span class="text-red-400 font-bold">YT</span>
+                        <span>&bull;</span>
+                        <span class="text-pink-400 font-bold">IG</span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="py-6 text-center text-slate-500 text-xs">No upcoming posts scheduled.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Platform Health & Quota -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-200">Platform Health</h3>
+            <a href="/accounts" class="text-xs text-indigo-400 hover:underline">Manage &rarr;</a>
+        </div>
+
+        <!-- YouTube Health -->
+        <div class="p-3.5 bg-slate-900/60 rounded-xl space-y-2 border border-slate-800/60 text-xs">
+            <div class="flex items-center justify-between">
+                <span class="font-bold text-red-400 flex items-center space-x-1.5">
+                    <span>YouTube</span>
+                </span>
+                {% if yt_acc and yt_acc.status == 'connected' %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Connected</span>
+                {% else %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Disconnected</span>
+                {% endif %}
+            </div>
+            <p class="text-slate-300 truncate">{{ yt_acc.account_name|default:"Not linked" }}</p>
+            <div>
+                <div class="flex justify-between text-[11px] text-slate-500 mb-1">
+                    <span>Daily Quota:</span>
+                    <span>{{ yt_quota_used }} / {{ yt_quota_total }} pts</span>
+                </div>
+                <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                    <div class="bg-red-500 h-1.5 rounded-full" style="width: {% widthratio yt_quota_used yt_quota_total 100 %}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instagram Health -->
+        <div class="p-3.5 bg-slate-900/60 rounded-xl space-y-2 border border-slate-800/60 text-xs">
+            <div class="flex items-center justify-between">
+                <span class="font-bold text-pink-400 flex items-center space-x-1.5">
+                    <span>Instagram</span>
+                </span>
+                {% if ig_acc and ig_acc.status == 'connected' %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Connected</span>
+                {% else %}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Disconnected</span>
+                {% endif %}
+            </div>
+            <p class="text-slate-300 truncate">@{{ ig_acc.account_name|default:"Not linked" }}</p>
+            {% if ig_acc and ig_acc.expires_at %}
+            <div class="text-[11px] text-slate-500">Token expires: {{ ig_acc.expires_at|date:"M d, Y" }}</div>
+            {% endif %}
+        </div>
+    </div>
+</div>

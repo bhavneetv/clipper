@@ -1,0 +1,106 @@
+{% for video in videos %}
+<tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition text-sm">
+    <td class="py-3 px-4">
+        <div class="flex items-center space-x-3">
+            <span class="text-xs font-mono text-slate-500">#{{ video.seq|default:"-" }}</span>
+            <div class="w-10 h-14 bg-slate-950 border border-slate-800 rounded flex items-center justify-center shrink-0 overflow-hidden relative group">
+                {% if video.public_url %}
+                <video src="{{ video.public_url }}" class="w-full h-full object-cover" preload="none"></video>
+                {% else %}
+                <span class="text-[10px] text-slate-600">N/A</span>
+                {% endif %}
+            </div>
+            <div>
+                <a href="/videos/{{ video.id }}/" class="font-semibold text-slate-200 hover:text-indigo-400 block truncate max-w-[200px]">
+                    {{ video.yt_title|default:video.file_name }}
+                </a>
+                <span class="text-xs text-slate-500 block truncate max-w-[200px]">{{ video.file_name }}</span>
+            </div>
+        </div>
+    </td>
+    <td class="py-3 px-4">
+        {% if video.status == 'queued' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">Queued</span>
+        {% elif video.status == 'scheduled' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">Scheduled</span>
+        {% elif video.status == 'awaiting_approval' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Awaiting Approval</span>
+        {% elif video.status == 'uploading' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">Uploading</span>
+        {% elif video.status == 'posted' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Posted</span>
+        {% elif video.status == 'invalid' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20" title="{{ video.invalid_reason }}">Invalid</span>
+        {% elif video.status == 'failed' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">Failed</span>
+        {% elif video.status == 'file_deleted' %}
+        <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">Deleted</span>
+        {% endif %}
+        {% if video.held %}
+        <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-600/30 text-amber-300">HELD</span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4">
+        <div class="space-y-1">
+            <div class="flex items-center space-x-1.5 text-xs">
+                <span class="font-bold text-red-400">YT:</span>
+                {% if video.yt_status == 'posted' and video.yt_url %}
+                <a href="{{ video.yt_url }}" target="_blank" class="text-indigo-400 hover:underline">Shorts &nearr;</a>
+                {% else %}
+                <span class="text-slate-400">{{ video.yt_status }}</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center space-x-1.5 text-xs">
+                <span class="font-bold text-blue-400">FB:</span>
+                {% if video.fb_status == 'posted' and video.fb_url %}
+                <a href="{{ video.fb_url }}" target="_blank" class="text-blue-400 hover:underline">Post &nearr;</a>
+                {% else %}
+                <span class="text-slate-400">{{ video.fb_status }}</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center space-x-1.5 text-xs">
+                <span class="font-bold text-pink-400">IG:</span>
+                {% if video.ig_status == 'posted' and video.ig_permalink %}
+                <a href="{{ video.ig_permalink }}" target="_blank" class="text-indigo-400 hover:underline">Reel &nearr;</a>
+                {% else %}
+                <span class="text-slate-400">{{ video.ig_status }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </td>
+    <td class="py-3 px-4 text-xs text-slate-400">
+        {% if video.scheduled_at %}
+        <div>{{ video.scheduled_at|date:"M d, H:i" }} IST</div>
+        {% else %}
+        <span class="text-slate-600">-</span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4 text-xs text-slate-400">
+        <div>{{ video.duration_s|default:"-" }}s</div>
+        <div class="text-[11px] text-slate-500">{{ video.width|default:"?" }}x{{ video.height|default:"?" }}</div>
+    </td>
+    <td class="py-3 px-4 text-xs text-slate-400">
+        {% if video.file_deleted_at %}
+        <span class="text-rose-400">Deleted</span>
+        {% elif video.delete_after %}
+        <span>{{ video.delete_after|date:"M d" }}</span>
+        {% else %}
+        <span class="text-slate-600">-</span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4 text-right">
+        <a href="/videos/{{ video.id }}/" class="text-xs px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition font-medium">
+            Details
+        </a>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="7" class="py-12 text-center text-slate-500">
+        <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        <p class="text-sm font-medium">No videos found matching your filters.</p>
+    </td>
+</tr>
+{% endfor %}
