@@ -25,6 +25,7 @@ urlpatterns = [
     path("videos/<uuid:video_id>/post-now", approvals.video_post_now_view, name="video_post_now"),
     path("videos/<uuid:video_id>/retry", approvals.video_retry_view, name="video_retry"),
     path("videos/<uuid:video_id>/skip", approvals.video_skip_view, name="video_skip"),
+    path("videos/<uuid:video_id>/toggle-platform", approvals.video_toggle_platform_view, name="video_toggle_platform"),
     path("videos/<uuid:video_id>/delete", approvals.video_delete_view, name="video_delete"),
     path("videos/bulk", approvals.videos_bulk_action_view, name="videos_bulk"),
     path("videos/scan", videos.scan_inbox_view, name="videos_scan"),
@@ -36,6 +37,7 @@ urlpatterns = [
     path("queue", queue.queue_view, name="queue"),
     path("queue/reorder", queue.queue_reorder_view, name="queue_reorder"),
     path("queue/pause", queue.queue_pause_view, name="queue_pause"),
+    path("queue/bulk-platform", queue.queue_bulk_platform_view, name="queue_bulk_platform"),
 
     # Settings
     path("settings", settings.settings_view, name="settings"),

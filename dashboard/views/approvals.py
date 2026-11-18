@@ -153,6 +153,65 @@ def video_skip_view(request, video_id):
 
 
 @require_POST
+def video_toggle_platform_view(request, video_id):
+    """
+    Toggle or explicitly set destination platform (yt, fb, ig) for a video.
+    Params:
+      platform: 'yt' | 'fb' | 'ig'
+      state: 'on' | 'off' (optional; if omitted, toggles between pending and skipped)
+    """
+    video = get_object_or_404(Video, id=video_id)
+    platform = request.POST.get("platform", "").lower().strip()
+    desired_state = request.POST.get("state", "").lower().strip()
+
+    if platform not in ("yt", "fb", "ig"):
+        return JsonResponse({"ok": False, "error": "Invalid platform. Must be yt, fb, or ig."}, status=400)
+
+    attr = f"{platform}_status"
+    curr_status = getattr(video, attr)
+
+    if curr_status in ("posted", "uploading"):
+        return JsonResponse({
+            "ok": False,
+            "error": f"Cannot change {platform.upper()} because it is already {curr_status}."
+        }, status=400)
+
+    if desired_state == "on":
+        new_status = "pending"
+    elif desired_state == "off":
+        new_status = "skipped"
+    else:
+        new_status = "skipped" if curr_status == "pending" else "pending"
+
+    setattr(video, attr, new_status)
+    if new_status == "pending":
+        setattr(video, f"{platform}_attempts", 0)
+        setattr(video, f"{platform}_error", None)
+        setattr(video, f"{platform}_next_attempt_at", None)
+
+    video.save()
+    from core.jobs import derive_overall_status
+    derive_overall_status(video)
+
+    ActivityLog.objects.create(
+        video_id=video.id,
+        event="platform_toggle",
+        platform=platform,
+        message=f"{platform.upper()} set to {new_status} by admin.",
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "video_id": str(video.id),
+        "platform": platform,
+        "status": new_status,
+        "yt_status": video.yt_status,
+        "fb_status": video.fb_status,
+        "ig_status": video.ig_status,
+    })
+
+
+@require_POST
 def video_retry_view(request, video_id):
     """Retry a failed platform job (platform=yt|ig|fb)."""
     video = get_object_or_404(Video, id=video_id)

@@ -43,6 +43,16 @@
                 </button>
             </form>
 
+            <!-- Facebook Pause -->
+            <form action="/queue/pause" method="POST" hx-post="/queue/pause">
+                {% csrf_token %}
+                <input type="hidden" name="scope" value="fb">
+                <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-xl border transition flex items-center space-x-1.5
+                    {% if paused_fb %}bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30{% else %}bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800{% endif %}">
+                    <span>{% if paused_fb %}Resume Facebook{% else %}Pause Facebook{% endif %}</span>
+                </button>
+            </form>
+
             <!-- Instagram Pause -->
             <form action="/queue/pause" method="POST" hx-post="/queue/pause">
                 {% csrf_token %}
@@ -62,37 +72,143 @@
     </div>
     {% endif %}
 
+    <!-- Bulk Multi-Selection Toolbar (Shown when videos are checked) -->
+    <div id="bulk-toolbar" class="hidden bg-slate-900 border border-indigo-500/40 rounded-2xl p-3.5 shadow-2xl flex flex-wrap items-center justify-between gap-3 text-xs sticky top-4 z-20 transition-all">
+        <div class="flex items-center space-x-2">
+            <span id="bulk-count" class="font-bold text-white px-2.5 py-1 bg-indigo-600 rounded-lg shadow">0 selected</span>
+            <span class="text-slate-300 font-medium">Set Destinations for Selected:</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Quick destination sets -->
+            <button type="button" onclick="applyBulkPlatform('set_platforms', ['yt', 'fb', 'ig'])" class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl font-bold transition">
+                ✓ All 3 (YT + FB + IG)
+            </button>
+            <button type="button" onclick="applyBulkPlatform('set_platforms', ['yt'])" class="px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl font-semibold transition">
+                YT Only
+            </button>
+            <button type="button" onclick="applyBulkPlatform('set_platforms', ['fb'])" class="px-2.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl font-semibold transition">
+                FB Only
+            </button>
+            <button type="button" onclick="applyBulkPlatform('set_platforms', ['ig'])" class="px-2.5 py-1.5 bg-fuchsia-600/20 hover:bg-fuchsia-600/30 text-fuchsia-300 border border-fuchsia-500/30 rounded-xl font-semibold transition">
+                IG Only
+            </button>
+            <button type="button" onclick="applyBulkPlatform('set_platforms', ['fb', 'ig'])" class="px-2.5 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl font-semibold transition">
+                FB + IG
+            </button>
+
+            <!-- Bulk Post Now -->
+            <button type="button" onclick="applyBulkPlatform('post_now', [])" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow transition flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>Post Selected Now</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Reorderable Queue List -->
     <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        <div class="p-4 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span>Drag rows by the handle to change upcoming release sequence.</span>
+        <div class="p-3.5 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400 bg-slate-900/30">
+            <div class="flex items-center space-x-3">
+                <input type="checkbox" id="queue-select-all" class="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer" title="Select / Deselect All">
+                <span>Select all &bull; Drag rows by the handle to reorder sequence</span>
+            </div>
             <span id="reorder-status" class="text-indigo-400 font-semibold hidden">Saving new sequence...</span>
         </div>
 
         <ul id="queue-sortable-list" class="divide-y divide-slate-800/60">
             {% for video in videos %}
-            <li data-id="{{ video.id }}" class="p-4 hover:bg-slate-900/50 flex items-center justify-between gap-4 transition select-none">
-                <div class="flex items-center space-x-4">
+            <li data-id="{{ video.id }}" class="p-4 hover:bg-slate-900/50 flex flex-col md:flex-row md:items-center justify-between gap-4 transition select-none">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <!-- Checkbox for multi-select -->
+                    <input type="checkbox" class="queue-item-cb rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer shrink-0" data-id="{{ video.id }}">
+
                     <!-- Drag Handle -->
-                    <div class="cursor-grab text-slate-600 hover:text-slate-300 p-1">
+                    <div class="cursor-grab text-slate-600 hover:text-slate-300 p-1 shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
                         </svg>
                     </div>
 
-                    <span class="font-mono text-xs font-bold text-slate-500 w-8">#{{ video.seq }}</span>
+                    <span class="font-mono text-xs font-bold text-slate-500 w-8 shrink-0">#{{ video.seq }}</span>
 
-                    <div>
-                        <a href="/videos/{{ video.id }}/" class="font-semibold text-slate-200 hover:text-indigo-400 text-sm block">
+                    <div class="min-w-0">
+                        <a href="/videos/{{ video.id }}/" class="font-semibold text-slate-200 hover:text-indigo-400 text-sm truncate block" title="{{ video.yt_title|default:video.file_name }}">
                             {{ video.yt_title|default:video.file_name }}
                         </a>
-                        <span class="text-xs text-slate-500">{{ video.file_name }}</span>
+                        <span class="text-xs text-slate-500 truncate block">{{ video.file_name }}</span>
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-6 text-xs">
-                    <!-- Scheduled Time -->
-                    <div class="text-right">
+                <div class="flex flex-wrap items-center justify-between md:justify-end gap-3 text-xs shrink-0">
+                    <!-- Post Destination Multi-Select Toggles -->
+                    <div class="flex items-center space-x-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                        <span class="text-[10px] uppercase font-bold text-slate-500 px-1.5 hidden sm:inline">Post:</span>
+
+                        <!-- YouTube Destination -->
+                        {% if video.yt_status == "posted" %}
+                            <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1" title="Posted to YouTube">
+                                <span>✓</span><span>YT</span>
+                            </span>
+                        {% elif video.yt_status == "uploading" %}
+                            <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center space-x-1 animate-pulse">
+                                <span>⏳</span><span>YT</span>
+                            </span>
+                        {% elif video.yt_status == "skipped" %}
+                            <button type="button" onclick="togglePlatform('{{ video.id }}', 'yt', 'on')" class="px-2 py-1 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-300 hover:bg-slate-800 border border-transparent transition flex items-center space-x-1" title="YouTube is OFF for this video. Click to ENABLE.">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                                <span class="line-through">YT</span>
+                            </button>
+                        {% else %}
+                            <button type="button" onclick="togglePlatform('{{ video.id }}', 'yt', 'off')" class="px-2 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition flex items-center space-x-1" title="YouTube is ENABLED. Click to disable.">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                <span>YT</span>
+                            </button>
+                        {% endif %}
+
+                        <!-- Facebook Destination -->
+                        {% if video.fb_status == "posted" %}
+                            <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1" title="Posted to Facebook">
+                                <span>✓</span><span>FB</span>
+                            </span>
+                        {% elif video.fb_status == "uploading" %}
+                            <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center space-x-1 animate-pulse">
+                                <span>⏳</span><span>FB</span>
+                            </span>
+                        {% elif video.fb_status == "skipped" %}
+                            <button type="button" onclick="togglePlatform('{{ video.id }}', 'fb', 'on')" class="px-2 py-1 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-300 hover:bg-slate-800 border border-transparent transition flex items-center space-x-1" title="Facebook is OFF for this video. Click to ENABLE.">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                                <span class="line-through">FB</span>
+                            </button>
+                        {% else %}
+                            <button type="button" onclick="togglePlatform('{{ video.id }}', 'fb', 'off')" class="px-2 py-1 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 transition flex items-center space-x-1" title="Facebook is ENABLED. Click to disable.">
+                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                <span>FB</span>
+                            </button>
+                        {% endif %}
+
+                        <!-- Instagram Destination -->
+                        {% if video.ig_status == "posted" %}
+                            <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1" title="Posted to Instagram">
+                                <span>✓</span><span>IG</span>
+                            </span>
+                        {% elif video.ig_status == "uploading" %}
+                            <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center space-x-1 animate-pulse">
+                                <span>⏳</span><span>IG</span>
+                            </span>
+                        {% elif video.ig_status == "skipped" %}
+                            <button type="button" onclick="togglePlatform('{{ video.id }}', 'ig', 'on')" class="px-2 py-1 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-300 hover:bg-slate-800 border border-transparent transition flex items-center space-x-1" title="Instagram is OFF for this video. Click to ENABLE.">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                                <span class="line-through">IG</span>
+                            </button>
+                        {% else %}
+                            <button type="button" onclick="togglePlatform('{{ video.id }}', 'ig', 'off')" class="px-2 py-1 rounded-lg text-xs font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40 hover:bg-fuchsia-500/30 transition flex items-center space-x-1" title="Instagram is ENABLED. Click to disable.">
+                                <span class="w-1.5 h-1.5 rounded-full bg-fuchsia-500"></span>
+                                <span>IG</span>
+                            </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Scheduled Time Slot -->
+                    <div class="text-right min-w-[85px]">
                         {% if video.scheduled_at %}
                         <span class="font-semibold text-slate-300 block">{{ video.scheduled_at|date:"M d, H:i" }} IST</span>
                         <span class="text-[11px] text-slate-500">Slot Assigned</span>
@@ -113,7 +229,7 @@
             </li>
             {% empty %}
             <li class="p-12 text-center text-slate-500 text-sm">
-                No videos currently in queue. Upload new videos in the Videos tab.
+                No videos currently in queue. Upload or sync new videos in the Videos tab.
             </li>
             {% endfor %}
         </ul>
@@ -123,7 +239,96 @@
 
 {% block scripts %}
 <script>
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+function updateBulkToolbar() {
+    const checked = Array.from(document.querySelectorAll('.queue-item-cb:checked'));
+    const toolbar = document.getElementById('bulk-toolbar');
+    const countEl = document.getElementById('bulk-count');
+    if (!toolbar) return;
+
+    if (checked.length > 0) {
+        toolbar.classList.remove('hidden');
+        if (countEl) countEl.innerText = `${checked.length} selected`;
+    } else {
+        toolbar.classList.add('hidden');
+    }
+}
+
+function togglePlatform(videoId, platform, desiredState) {
+    const formData = new FormData();
+    formData.append('platform', platform);
+    if (desiredState) formData.append('state', desiredState);
+
+    fetch(`/videos/${videoId}/toggle-platform`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfToken() },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Failed to toggle platform');
+        }
+    })
+    .catch(err => alert('Network error: ' + err.message));
+}
+
+function applyBulkPlatform(action, platforms) {
+    const checked = Array.from(document.querySelectorAll('.queue-item-cb:checked')).map(cb => cb.getAttribute('data-id'));
+    if (checked.length === 0) {
+        alert('Please select at least one video.');
+        return;
+    }
+
+    const formData = new FormData();
+    checked.forEach(id => formData.append('ids[]', id));
+    formData.append('action', action);
+
+    if (Array.isArray(platforms)) {
+        platforms.forEach(p => formData.append('platforms[]', p));
+    } else if (typeof platforms === 'string' && platforms) {
+        formData.append('platform', platforms);
+    }
+
+    fetch('/queue/bulk-platform', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfToken() },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Failed to update selected videos.');
+        }
+    })
+    .catch(err => alert('Network error: ' + err.message));
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+    // Master checkbox
+    const selectAll = document.getElementById('queue-select-all');
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            document.querySelectorAll('.queue-item-cb').forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            updateBulkToolbar();
+        });
+    }
+
+    // Row checkboxes
+    document.querySelectorAll('.queue-item-cb').forEach(cb => {
+        cb.addEventListener('change', updateBulkToolbar);
+    });
+
+    // Sortable reordering
     const el = document.getElementById('queue-sortable-list');
     if (!el) return;
 
@@ -139,11 +344,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const formData = new FormData();
             order.forEach(id => formData.append('ids[]', id));
 
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-
             fetch('/queue/reorder', {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken },
+                headers: { 'X-CSRFToken': getCsrfToken() },
                 body: formData
             }).then(() => {
                 if (statusEl) {
