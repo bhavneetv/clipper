@@ -12,7 +12,7 @@ from core.scheduling import get_now, get_tz
 from core.settings_store import get_all_settings, get_setting
 
 
-def get_overview_context():
+def get_overview_context(is_superadmin=True):
     now = get_now()
     tz = get_tz()
     now_local = now.astimezone(tz)
@@ -70,21 +70,22 @@ def get_overview_context():
             "action": "Configure Captions",
         })
 
-    if not yt_acc or yt_acc.status != "connected":
-        warnings.append({
-            "type": "account",
-            "message": "YouTube account is disconnected. Connect your Google account to enable Shorts.",
-            "link": "/accounts",
-            "action": "Connect YouTube",
-        })
+    if is_superadmin:
+        if not yt_acc or yt_acc.status != "connected":
+            warnings.append({
+                "type": "account",
+                "message": "YouTube account is disconnected. Connect your Google account to enable Shorts.",
+                "link": "/accounts",
+                "action": "Connect YouTube",
+            })
 
-    if not ig_acc or ig_acc.status != "connected":
-        warnings.append({
-            "type": "account",
-            "message": "Instagram account is disconnected. Connect your Instagram account to enable Reels.",
-            "link": "/accounts",
-            "action": "Connect Instagram",
-        })
+        if not ig_acc or ig_acc.status != "connected":
+            warnings.append({
+                "type": "account",
+                "message": "Instagram account is disconnected. Connect your Instagram account to enable Reels.",
+                "link": "/accounts",
+                "action": "Connect Instagram",
+            })
 
     notify_enabled = get_setting("notify_enabled", True)
     notify_email = get_setting("notify_email", "").strip()
@@ -125,12 +126,14 @@ def get_overview_context():
 @require_GET
 def overview_view(request):
     """Full overview page."""
-    context = get_overview_context()
+    is_super = request.session.get("user_role") == "super"
+    context = get_overview_context(is_superadmin=is_super)
     return render(request, "dashboard/overview.html", context)
 
 
 @require_GET
 def summary_partial_view(request):
     """HTMX polled partial for overview cards."""
-    context = get_overview_context()
+    is_super = request.session.get("user_role") == "super"
+    context = get_overview_context(is_superadmin=is_super)
     return render(request, "dashboard/partials/summary_cards.html", context)

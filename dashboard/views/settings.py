@@ -4,6 +4,7 @@ Views for Application Settings and SMTP test notifications.
 import json
 import zoneinfo
 from django.conf import settings as django_settings
+from django.contrib import messages
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
@@ -11,7 +12,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 from core.notifier import notify_test_email
 from core.settings_store import get_all_settings, get_setting, set_setting
-from core.storage import get_storage_backend, get_storage_usage_stats
+from core.storage import get_storage_backend, get_storage_usage_stats, purge_storage_files
 
 
 @require_http_methods(["GET", "POST"])
@@ -239,3 +240,68 @@ def test_notification_view(request):
     res = HttpResponse(status=200)
     res["HX-Trigger"] = json.dumps({"showMessage": {"message": f"Test email sent to {recipient}!", "type": "success"}})
     return res
+
+
+@require_POST
+def storage_purge_view(request):
+    """
+    Purges video files stored in a specific storage backend.
+    Parameters in POST:
+        backend: 'local' | 'supabase' | 'cloudinary'
+        mode: 'posted' (only posted videos) | 'all' (all files in that backend)
+    """
+    backend = request.POST.get("backend", "").strip().lower()
+    mode = request.POST.get("mode", "posted").strip().lower()
+    only_posted = (mode != "all")
+
+    if backend not in ("local", "supabase", "cloudinary"):
+        if request.headers.get("HX-Request") == "true":
+            res = HttpResponse(status=400)
+            res["HX-Trigger"] = json.dumps({"showMessage": {"message": f"Invalid storage backend: {backend}", "type": "error"}})
+            return res
+        return redirect("/settings")
+
+    result = purge_storage_files(backend, only_posted=only_posted)
+    target_label = "already-posted" if only_posted else "all"
+    backend_display = {"local": "Local Disk", "supabase": "Supabase Storage", "cloudinary": "Cloudinary CDN"}.get(backend, backend)
+    msg = f"Deleted {result['deleted_count']} {target_label} file(s) from {backend_display}! Freed {result['freed_mb']} MB."
+
+    messages.success(request, msg)
+    if request.headers.get("HX-Request") == "true":
+        res = HttpResponse(status=200)
+        res["HX-Trigger"] = json.dumps({"showMessage": {"message": msg, "type": "success"}})
+        res["HX-Refresh"] = "true"
+        return res
+
+    return redirect("/settings")
+
+
+@require_POST
+def shutdown_toggle_view(request):
+    """
+    Toggles website shutdown / lock mode.
+    Accessible only to Super Admin (super@gmail.com).
+    When active, all visitors receive generic 'Error happened' response.
+    """
+    if request.session.get("user_role") != "super":
+        messages.error(request, "Permission denied. Only Super Admin can toggle Emergency Shutdown.")
+        return redirect(request.META.get("HTTP_REFERER", "/settings"))
+
+    curr = bool(get_setting("shutdown_enabled", False))
+    new_state = not curr
+    set_setting("shutdown_enabled", new_state)
+
+    if new_state:
+        msg = "Emergency Shutdown ACTIVE: All visitors now see 'Error happened'."
+        messages.warning(request, msg)
+    else:
+        msg = "Emergency Shutdown DEACTIVATED: Website access restored."
+        messages.success(request, msg)
+
+    if request.headers.get("HX-Request") == "true":
+        res = HttpResponse(status=200)
+        res["HX-Trigger"] = json.dumps({"showMessage": {"message": msg, "type": "warning" if new_state else "success"}})
+        res["HX-Refresh"] = "true"
+        return res
+
+    return redirect(request.META.get("HTTP_REFERER", "/settings"))

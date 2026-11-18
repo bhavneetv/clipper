@@ -39,6 +39,8 @@ urlpatterns = [
 
     # Settings
     path("settings", settings.settings_view, name="settings"),
+    path("settings/storage/purge", settings.storage_purge_view, name="storage_purge"),
+    path("settings/shutdown/toggle", settings.shutdown_toggle_view, name="shutdown_toggle"),
     path("notifications/test", settings.test_notification_view, name="notifications_test"),
 
     # Accounts

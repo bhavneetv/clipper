@@ -270,6 +270,65 @@ def delete_file(key: str) -> bool:
         return False
 
 
+def purge_storage_files(backend: str, only_posted: bool = False) -> Dict[str, Any]:
+    """
+    Purge stored video files for a specific storage backend.
+    If only_posted is True, only deletes files for videos with status 'posted'.
+    If only_posted is False, deletes all files associated with the backend.
+    """
+    from core.models import Video, ActivityLog
+    from django.utils import timezone
+    now = timezone.now()
+    deleted_count = 0
+    freed_bytes = 0
+
+    backend = backend.lower()
+    qs = Video.objects.filter(file_deleted_at__isnull=True)
+    if only_posted:
+        qs = qs.filter(status="posted")
+
+    if backend == "local":
+        qs = qs.filter(file_key__startswith="local:")
+        inbox_dir = get_local_inbox_dir()
+        if not only_posted and inbox_dir.exists():
+            for p in inbox_dir.glob("*.mp4"):
+                try:
+                    freed_bytes += p.stat().st_size
+                    p.unlink()
+                    deleted_count += 1
+                except Exception as e:
+                    logger.warning("Could not delete local file %s: %s", p, e)
+    elif backend == "cloudinary":
+        qs = qs.filter(file_key__startswith="cloudinary:")
+    elif backend == "supabase":
+        qs = qs.exclude(file_key__startswith="local:").exclude(file_key__startswith="cloudinary:")
+    else:
+        return {"ok": False, "error": f"Unknown backend: {backend}", "deleted_count": 0, "freed_mb": 0.0}
+
+    for vid in qs:
+        size = vid.size_bytes or 0
+        if delete_file(vid.file_key):
+            freed_bytes += size
+            deleted_count += 1
+            vid.file_deleted_at = now
+            vid.status = "file_deleted"
+            vid.save(update_fields=["file_deleted_at", "status", "updated_at"])
+            ActivityLog.objects.create(
+                video_id=vid.id,
+                event="deleted",
+                message=f"File purged from {backend} storage by admin.",
+            )
+
+    freed_mb = round(freed_bytes / (1024 * 1024), 2)
+    return {
+        "ok": True,
+        "backend": backend,
+        "only_posted": only_posted,
+        "deleted_count": deleted_count,
+        "freed_mb": freed_mb,
+    }
+
+
 def create_signed_upload_url(file_name: str, prefix: Optional[str] = None) -> Dict[str, Any]:
     """
     Create a signed upload URL or parameters for browser direct uploads.

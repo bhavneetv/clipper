@@ -25,6 +25,8 @@ class CoreConfig(AppConfig):
             "check",
             "sqlmigrate",
             "showmigrations",
+            "loaddata",
+            "dumpdata",
         }
         if any(cmd in sys.argv for cmd in skip_cmds):
             return

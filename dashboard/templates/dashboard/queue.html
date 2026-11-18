@@ -92,7 +92,7 @@
                     </div>
 
                     <!-- Post Now Button -->
-                    <form action="/videos/{{ video.id }}/post-now" method="POST">
+                    <form action="/videos/{{ video.id }}/post-now" method="POST" hx-post="/videos/{{ video.id }}/post-now">
                         {% csrf_token %}
                         <button type="submit" class="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-bold rounded-lg border border-indigo-500/40 transition">
                             Post Now

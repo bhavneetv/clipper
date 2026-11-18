@@ -34,13 +34,20 @@
                 <div class="space-y-3 text-xs">
                     <div>
                         <span class="text-slate-500 block mb-0.5">Channel Name:</span>
-                        <span class="font-bold text-slate-200 text-sm">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                            <span class="font-bold text-slate-200 text-sm">
+                                {% if yt_acc and yt_acc.status == 'connected' %}
+                                    {{ yt_acc.account_name|default:"Connected Channel" }}
+                                {% else %}
+                                    Not Connected
+                                {% endif %}
+                            </span>
                             {% if yt_acc and yt_acc.status == 'connected' %}
-                                {{ yt_acc.account_name|default:"Connected Channel" }}
-                            {% else %}
-                                Not Connected
+                            <a href="https://www.youtube.com/@%E0%A4%AA%E0%A4%A8%E0%A5%80%E0%A4%B0%E0%A4%95%E0%A4%BE%E0%A4%AA%E0%A4%B0%E0%A4%BE%E0%A4%A0%E0%A4%BE/shorts" target="_blank" rel="noopener noreferrer" class="text-xs text-red-400 hover:text-red-300 font-semibold underline inline-flex items-center space-x-1 mt-1 sm:mt-0">
+                                <span>Open Channel Shorts &rarr;</span>
+                            </a>
                             {% endif %}
-                        </span>
+                        </div>
                     </div>
                     <div>
                         <span class="text-slate-500 block mb-0.5">Today's Quota Estimate:</span>

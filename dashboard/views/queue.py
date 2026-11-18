@@ -1,6 +1,8 @@
 """
 Views for Queue management, drag-and-drop reordering, and pause controls.
 """
+import json
+from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -43,23 +45,33 @@ def queue_reorder_view(request):
 
 @require_POST
 def queue_pause_view(request):
-    """Toggle global or per-platform pause (scope=all|yt|ig)."""
+    """Toggle global or per-platform pause (scope=all|yt|ig|fb)."""
     scope = request.POST.get("scope", "all").lower()
     if scope == "yt":
         curr = get_setting("paused_yt", False)
-        set_setting("paused_yt", not curr)
+        new_state = not curr
+        set_setting("paused_yt", new_state)
+        msg = f"YouTube posting {'paused' if new_state else 'resumed'}."
     elif scope == "ig":
         curr = get_setting("paused_ig", False)
-        set_setting("paused_ig", not curr)
+        new_state = not curr
+        set_setting("paused_ig", new_state)
+        msg = f"Instagram posting {'paused' if new_state else 'resumed'}."
     elif scope == "fb":
         curr = get_setting("paused_fb", False)
-        set_setting("paused_fb", not curr)
+        new_state = not curr
+        set_setting("paused_fb", new_state)
+        msg = f"Facebook posting {'paused' if new_state else 'resumed'}."
     else:
         curr = get_setting("paused", False)
-        set_setting("paused", not curr)
+        new_state = not curr
+        set_setting("paused", new_state)
+        msg = f"Global posting {'paused' if new_state else 'resumed'}."
 
+    messages.info(request, msg)
     if request.headers.get("HX-Request") == "true":
         res = HttpResponse(status=200)
+        res["HX-Trigger"] = json.dumps({"showMessage": {"message": msg, "type": "info"}})
         res["HX-Refresh"] = "true"
         return res
     return redirect("/queue")

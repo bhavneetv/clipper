@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
+from core.settings_store import get_config_value
 
 
 def get_client_ip(request) -> str:
@@ -33,14 +34,22 @@ def login_view(request):
         return render(request, "dashboard/login.html", {"error": error, "rate_limited": True}, status=429)
 
     if request.method == "POST":
-        email = request.POST.get("email", "").strip()
+        email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password", "").strip()
 
-        admin_email = getattr(settings, "ADMIN_EMAIL", "")
-        admin_hash = getattr(settings, "ADMIN_PASSWORD_HASH", "")
+        admin_hash = str(get_config_value("admin_password_hash", getattr(settings, "ADMIN_PASSWORD_HASH", ""))).strip()
+
+        admin_email = str(get_config_value("admin_email", getattr(settings, "ADMIN_EMAIL", "admin@gmail.com"))).strip().lower()
+        super_email = str(get_config_value("super_email", getattr(settings, "SUPER_EMAIL", "super@gmail.com"))).strip().lower()
+
+        valid_role = None
+        if email in (super_email, "super@gmail.com"):
+            valid_role = "super"
+        elif email in (admin_email, "admin@gmail.com", "admin@example.com"):
+            valid_role = "admin"
 
         is_valid = False
-        if admin_email and admin_hash and email.lower() == admin_email.lower():
+        if valid_role and admin_hash and password:
             try:
                 # Compare password with bcrypt hash
                 if bcrypt.checkpw(password.encode("utf-8"), admin_hash.encode("utf-8")):
@@ -51,7 +60,8 @@ def login_view(request):
         if is_valid:
             cache.delete(cache_key)
             request.session["is_authenticated"] = True
-            request.session["admin_email"] = admin_email
+            request.session["admin_email"] = email
+            request.session["user_role"] = valid_role
             return redirect("/")
         else:
             attempts += 1

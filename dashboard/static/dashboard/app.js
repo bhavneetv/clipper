@@ -29,14 +29,31 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!detail) return;
         if (typeof detail === "string") {
             window.showToast(detail, "info");
-        } else if (detail.message) {
-            window.showToast(detail.message, detail.type || "info");
-        } else if (detail.value) {
-            if (typeof detail.value === "string") {
-                window.showToast(detail.value, "info");
-            } else if (detail.value.message) {
-                window.showToast(detail.value.message, detail.value.type || "info");
+        } else if (typeof detail === "object") {
+            const msg = detail.message || detail.text || (typeof detail.value === "string" ? detail.value : (detail.value && detail.value.message)) || detail.error || "";
+            const typ = detail.type || (detail.value && detail.value.type) || "info";
+            if (msg) {
+                window.showToast(msg, typ);
             }
+        }
+    });
+
+    // Handle HTMX server errors gracefully with toasts
+    document.body.addEventListener("htmx:responseError", function (evt) {
+        let msg = "Action failed (HTTP " + (evt.detail.xhr ? evt.detail.xhr.status : "Error") + ")";
+        try {
+            const data = JSON.parse(evt.detail.xhr.responseText);
+            if (data.error) msg = data.error;
+            else if (data.message) msg = data.message;
+        } catch (e) {}
+        if (window.showToast) {
+            window.showToast(msg, "error");
+        }
+    });
+
+    document.body.addEventListener("htmx:sendError", function () {
+        if (window.showToast) {
+            window.showToast("Network connection error. Server unreachable.", "error");
         }
     });
 });

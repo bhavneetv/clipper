@@ -7,60 +7,8 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: DJANGO_DEBUG
-        value: "false"
-      - key: RUN_SCHEDULER
-        value: "1"
-      - key: SESSION_COOKIE_AGE_HOURS
-        value: "24"
-      - key: SUPABASE_BUCKET
-        value: "shorts"
-      - key: STORAGE_INBOX_PREFIX
-        value: "inbox/"
-      - key: MAX_FILE_MB
-        value: "50"
-      - key: GRAPH_API_VERSION
-        value: "v21.0"
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_STARTTLS
-        value: "true"
-      # Secure credentials to be set in Render Dashboard:
-      - key: DJANGO_SECRET_KEY
-        sync: false
-      - key: ENCRYPTION_KEY
-        sync: false
-      - key: ADMIN_EMAIL
-        sync: false
-      - key: ADMIN_PASSWORD_HASH
-        sync: false
+      # Only ONE environment variable is required on Render!
+      # All application keys, secrets, API tokens, and configurations are
+      # automatically loaded from your TiDB database on boot.
       - key: DATABASE_URL
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: APP_PUBLIC_URL
-        sync: false
-      - key: ALLOWED_HOSTS
-        sync: false
-      - key: CSRF_TRUSTED_ORIGINS
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_REDIRECT_URI
-        sync: false
-      - key: META_APP_ID
-        sync: false
-      - key: META_APP_SECRET
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: SMTP_FROM
         sync: false

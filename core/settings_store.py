@@ -50,7 +50,16 @@ CONFIG_KEY_MAPPING: Dict[str, str] = {
     "google_client_secret": "GOOGLE_CLIENT_SECRET",
     "google_redirect_uri": "GOOGLE_REDIRECT_URI",
     # Meta / Facebook / Instagram
+    "meta_app_id": "META_APP_ID",
+    "meta_app_secret": "META_APP_SECRET",
     "graph_api_version": "GRAPH_API_VERSION",
+    # Core Auth & Security
+    "django_secret_key": "DJANGO_SECRET_KEY",
+    "encryption_key": "ENCRYPTION_KEY",
+    "admin_password_hash": "ADMIN_PASSWORD_HASH",
+    "admin_email": "ADMIN_EMAIL",
+    "super_email": "SUPER_EMAIL",
+    "shutdown_enabled": "SHUTDOWN_ENABLED",
 }
 
 

@@ -26,39 +26,102 @@
     <!-- Real-time Storage Usage Gauges -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <!-- Local Storage Usage Card -->
-        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Local Hard Drive</span>
-                {% if storage_stats.active_backend == 'local' %}
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Active</span>
-                {% endif %}
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Local Hard Drive</span>
+                    {% if storage_stats.active_backend == 'local' %}
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Active</span>
+                    {% endif %}
+                </div>
+                <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.local.used_mb }} MB</div>
+                <p class="text-xs text-slate-500 mt-1">{{ storage_stats.local.file_count }} files in <code class="text-slate-400 font-mono">./inbox</code></p>
             </div>
-            <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.local.used_mb }} MB</div>
-            <p class="text-xs text-slate-500 mt-1">{{ storage_stats.local.file_count }} files in <code class="text-slate-400 font-mono">./inbox</code></p>
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                <form action="/settings/storage/purge" method="POST" hx-post="/settings/storage/purge" onsubmit="return confirm('Purge already-posted local videos to free up disk space?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="backend" value="local">
+                    <input type="hidden" name="mode" value="posted">
+                    <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition">
+                        Purge Posted
+                    </button>
+                </form>
+                <form action="/settings/storage/purge" method="POST" hx-post="/settings/storage/purge" onsubmit="return confirm('DELETE ALL local inbox videos? This cannot be undone!')">
+                    {% csrf_token %}
+                    <input type="hidden" name="backend" value="local">
+                    <input type="hidden" name="mode" value="all">
+                    <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 rounded-lg border border-rose-500/30 transition flex items-center space-x-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Delete All</span>
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- Supabase Usage Card -->
-        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Supabase Storage</span>
-                {% if storage_stats.active_backend == 'supabase' %}
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>
-                {% endif %}
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Supabase Storage</span>
+                    {% if storage_stats.active_backend == 'supabase' %}
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>
+                    {% endif %}
+                </div>
+                <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.supabase.used_mb }} / {{ storage_stats.supabase.limit_mb }} MB</div>
+                <p class="text-xs text-slate-500 mt-1">Bucket: <span class="text-slate-300 font-mono">{{ storage_stats.supabase.bucket }}</span> (1 GB Free)</p>
             </div>
-            <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.supabase.used_mb }} / {{ storage_stats.supabase.limit_mb }} MB</div>
-            <p class="text-xs text-slate-500 mt-1">Bucket: <span class="text-slate-300 font-mono">{{ storage_stats.supabase.bucket }}</span> (1 GB Free)</p>
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                <form action="/settings/storage/purge" method="POST" hx-post="/settings/storage/purge" onsubmit="return confirm('Purge already-posted videos from Supabase bucket?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="backend" value="supabase">
+                    <input type="hidden" name="mode" value="posted">
+                    <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition">
+                        Purge Posted
+                    </button>
+                </form>
+                <form action="/settings/storage/purge" method="POST" hx-post="/settings/storage/purge" onsubmit="return confirm('DELETE ALL videos in Supabase bucket (shorts/inbox)? This cannot be undone!')">
+                    {% csrf_token %}
+                    <input type="hidden" name="backend" value="supabase">
+                    <input type="hidden" name="mode" value="all">
+                    <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 rounded-lg border border-rose-500/30 transition flex items-center space-x-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Delete All</span>
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- Cloudinary Usage Card -->
-        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cloudinary CDN</span>
-                {% if storage_stats.active_backend == 'cloudinary' %}
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">Active</span>
-                {% endif %}
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cloudinary CDN</span>
+                    {% if storage_stats.active_backend == 'cloudinary' %}
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">Active</span>
+                    {% endif %}
+                </div>
+                <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.cloudinary.used_mb }} / 25,000 MB</div>
+                <p class="text-xs text-slate-500 mt-1">25 GB Free tier (No CC required)</p>
             </div>
-            <div class="text-2xl font-black text-slate-100 font-mono">{{ storage_stats.cloudinary.used_mb }} / 25,000 MB</div>
-            <p class="text-xs text-slate-500 mt-1">25 GB Free tier (No CC required)</p>
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                <form action="/settings/storage/purge" method="POST" hx-post="/settings/storage/purge" onsubmit="return confirm('Purge already-posted videos from Cloudinary?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="backend" value="cloudinary">
+                    <input type="hidden" name="mode" value="posted">
+                    <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition">
+                        Purge Posted
+                    </button>
+                </form>
+                <form action="/settings/storage/purge" method="POST" hx-post="/settings/storage/purge" onsubmit="return confirm('DELETE ALL videos stored in Cloudinary folder? This cannot be undone!')">
+                    {% csrf_token %}
+                    <input type="hidden" name="backend" value="cloudinary">
+                    <input type="hidden" name="mode" value="all">
+                    <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 rounded-lg border border-rose-500/30 transition flex items-center space-x-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Delete All</span>
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -521,5 +584,46 @@
             </button>
         </div>
     </form>
+
+    {% if is_superadmin %}
+    <!-- Emergency Shutdown Section (Super Admin Only) -->
+    <div class="bg-slate-950 border border-rose-900/40 rounded-2xl p-6 shadow-2xl space-y-4 relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full {% if shutdown_active %}bg-rose-500 animate-ping{% else %}bg-emerald-500{% endif %}"></span>
+                    <h3 class="text-base font-black text-slate-100">Emergency System Shutdown</h3>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
+                        {% if shutdown_active %}bg-rose-500/20 text-rose-300 border border-rose-500/40{% else %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% endif %}">
+                        {% if shutdown_active %}Active (Locked){% else %}Normal (Online){% endif %}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1 max-w-2xl">
+                    When switched on, all public visitors and regular users will see a clean error screen stating only <strong>&ldquo;Error happened&rdquo;</strong>. No mention of maintenance or shutdown is shown. Only Super Admin can access the system.
+                </p>
+            </div>
+
+            <form action="/settings/shutdown/toggle" method="POST"
+                  onsubmit="return confirm('{% if shutdown_active %}Restore website to normal operation?{% else %}ACTIVATE EMERGENCY SHUTDOWN? All visitors will see \'Error happened\'.{% endif %}');">
+                {% csrf_token %}
+                {% if shutdown_active %}
+                <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center space-x-2 whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span>Turn OFF Shutdown (Restore Site)</span>
+                </button>
+                {% else %}
+                <button type="submit" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center space-x-2 whitespace-nowrap">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                    <span>Turn ON Shutdown (Lock Website)</span>
+                </button>
+                {% endif %}
+            </form>
+        </div>
+        <div class="text-[11px] text-slate-500 flex items-center justify-between">
+            <span>Emergency recovery bypass parameter: <code class="text-slate-400 font-mono">?unlock=admin123456</code></span>
+            <span>Super Admin exclusive control</span>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

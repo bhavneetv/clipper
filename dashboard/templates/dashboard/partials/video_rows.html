@@ -89,9 +89,19 @@
         {% endif %}
     </td>
     <td class="py-3 px-4 text-right">
-        <a href="/videos/{{ video.id }}/" class="text-xs px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition font-medium">
-            Details
-        </a>
+        <div class="flex items-center justify-end space-x-2">
+            <a href="/videos/{{ video.id }}/" class="text-xs px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition font-medium">
+                Details
+            </a>
+            {% if not video.file_deleted_at %}
+            <form action="/videos/{{ video.id }}/delete" method="POST" hx-post="/videos/{{ video.id }}/delete" onsubmit="return confirm('Delete video file for #{{ video.seq }} from storage?')">
+                {% csrf_token %}
+                <button type="submit" title="Delete file from storage" class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </form>
+            {% endif %}
+        </div>
     </td>
 </tr>
 {% empty %}

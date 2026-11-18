@@ -4,6 +4,7 @@ Views for video approval gate, per-video actions, and approvals live-polling.
 from datetime import datetime
 import json
 import threading
+from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
@@ -108,9 +109,11 @@ def video_post_now_view(request, video_id):
     post_now_video(video)
     # Trigger uploader immediately in background thread
     threading.Thread(target=run_uploader, daemon=True).start()
+    msg = f"Posting #{video.seq} now! Upload started."
+    messages.info(request, msg)
     if request.headers.get("HX-Request") == "true":
         res = HttpResponse(status=200)
-        res["HX-Trigger"] = json.dumps({"showMessage": {"message": f"Posting #{video.seq} now! Upload started.", "type": "info"}})
+        res["HX-Trigger"] = json.dumps({"showMessage": {"message": msg, "type": "info"}})
         res["HX-Refresh"] = "true"
         return res
     return redirect(request.META.get("HTTP_REFERER", "/approvals"))
@@ -209,9 +212,10 @@ def video_delete_view(request, video_id):
         event="deleted",
         message="Stored file deleted by admin.",
     )
+    messages.info(request, "File deleted from storage.")
     if request.headers.get("HX-Request") == "true":
         res = HttpResponse(status=200)
-        res["HX-Trigger"] = json.dumps({"showMessage": {"message": "File deleted.", "type": "info"}})
+        res["HX-Trigger"] = json.dumps({"showMessage": {"message": "File deleted from storage.", "type": "info"}})
         res["HX-Refresh"] = "true"
         return res
     return redirect(request.META.get("HTTP_REFERER", "/videos"))
