@@ -52,6 +52,13 @@ def save_instagram_credentials(access_token: str, ig_user_id: str) -> Tuple[bool
         platform="instagram",
         message=f"Instagram connected successfully for @{account_name}",
     )
+
+    # Reset any failed videos so they immediately retry
+    Video.objects.filter(status="failed").update(
+        status="queued",
+        ig_attempts=0,
+        ig_next_attempt_at=None,
+    )
     return True, None
 
 

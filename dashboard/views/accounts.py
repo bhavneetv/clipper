@@ -88,13 +88,14 @@ def instagram_token_view(request):
     ig_user_id = request.POST.get("ig_user_id", "").strip()
 
     if not access_token or not ig_user_id:
-        return render(request, "dashboard/accounts.html", {
-            "error": "Both Access Token and Instagram User ID are required."
-        })
+        messages.error(request, "Both Access Token and Instagram User ID are required.")
+        return redirect("/accounts")
 
     success, err_msg = save_instagram_credentials(access_token, ig_user_id)
     if not success:
-        return render(request, "dashboard/accounts.html", {"error": err_msg})
+        messages.error(request, err_msg or "Failed to connect Instagram.")
+    else:
+        messages.success(request, "Instagram account connected successfully!")
 
     return redirect("/accounts")
 
@@ -105,14 +106,15 @@ def facebook_token_view(request):
     access_token = request.POST.get("access_token", "").strip()
     page_id = request.POST.get("page_id", "").strip()
 
-    if not access_token or not page_id:
-        return render(request, "dashboard/accounts.html", {
-            "error": "Both Page ID and Access Token are required."
-        })
+    if not access_token:
+        messages.error(request, "Facebook Access Token is required.")
+        return redirect("/accounts")
 
     success, err_msg = save_facebook_credentials(access_token, page_id)
     if not success:
-        return render(request, "dashboard/accounts.html", {"error": err_msg})
+        messages.error(request, err_msg or "Failed to connect Facebook Page.")
+    else:
+        messages.success(request, "Facebook Page (and connected Instagram Reels) linked successfully!")
 
     return redirect("/accounts")
 
