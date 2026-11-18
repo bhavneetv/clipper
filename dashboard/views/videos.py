@@ -4,6 +4,7 @@ Views for Videos list, video details, video actions, and storage scanning.
 import logging
 import os
 from datetime import datetime
+from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
@@ -89,17 +90,22 @@ def videos_list_view(request):
 @require_POST
 def scan_inbox_view(request):
     """Trigger manual scan and sync of configured inbox storage."""
-    count = run_watcher()
-    if count > 0:
-        messages.success(request, f"Successfully synced and imported {count} new video(s) from storage!")
-    else:
-        messages.info(request, "Storage sync complete: No new video files found.")
+    try:
+        count = run_watcher()
+        if count > 0:
+            messages.success(request, f"Successfully synced and imported {count} new video(s) from storage!")
+        else:
+            messages.info(request, "Storage sync complete: No new video files found.")
+    except Exception as e:
+        logger.error("Error in scan_inbox_view: %s", e, exc_info=True)
+        messages.error(request, f"Storage sync error: {str(e)}")
 
     if request.headers.get("HX-Request") == "true":
         response = HttpResponse(status=200)
         response["HX-Refresh"] = "true"
         return response
-    return redirect("/videos")
+    referer = request.META.get("HTTP_REFERER") or "/videos"
+    return redirect(referer)
 
 
 @require_POST
