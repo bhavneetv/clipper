@@ -223,6 +223,9 @@ def derive_overall_status(video: Video) -> str:
         video.delete_after = base_time + timedelta(days=retention_days)
     elif not any(s in ("pending", "uploading") for s in statuses) and any(s == "failed" for s in statuses):
         video.status = "failed"
+    elif video.status in ("queued", "scheduled", "awaiting_approval"):
+        # Preserve existing queue / scheduled / approval state; do not change to uploading
+        pass
     else:
         video.status = "uploading"
 
