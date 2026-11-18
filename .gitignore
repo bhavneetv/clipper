@@ -13,3 +13,4 @@ media/
 Thumbs.db
 node_modules/
 inbox/
+data_backup.json
