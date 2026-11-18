@@ -3,6 +3,9 @@ Scheduler jobs for Shorts Auto-Poster using APScheduler.
 Includes watcher, tick, uploader, cleanup, token_refresh, and storage_check.
 """
 import logging
+import os
+import re
+import sqlite3
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from django.conf import settings
@@ -69,15 +72,18 @@ def run_job_safely(name, func, *args, **kwargs):
         close_old_connections()
 
 
-def run_watcher():
+def run_watcher() -> int:
     """
     Scans storage inbox for new .mp4 files, probes them with ffprobe,
-    detects duplicates, and creates Video and ActivityLog records.
+    detects duplicates, creates Video and ActivityLog records, and assigns
+    intelligent titles for video-cutter parts.
+    Returns the count of newly detected and queued videos.
     """
     inbox_items = list_inbox_videos()
     if not inbox_items:
-        return
+        return 0
 
+    imported_count = 0
     for item in inbox_items:
         key = item["key"]
         name = item["name"]
@@ -122,6 +128,34 @@ def run_watcher():
             except TypeError:
                 is_valid, reason, meta = probe_video(pub_url, file_size_bytes=size)
 
+            # Smart title resolution for video-cutter clips
+            resolved_title = None
+            job_match = re.search(r"job_([a-f0-9\-]+)", name, re.IGNORECASE)
+            part_match = re.search(r"part_(\d+)", name, re.IGNORECASE)
+            part_num = part_match.group(1) if part_match else None
+
+            if job_match:
+                job_id = job_match.group(1)
+                # Check local video-cutter database if available
+                for db_path in [
+                    r"Y:\projects\video-cutter\backend\storage\app.db",
+                    r"Y:\projects\video-cutter\storage\app.db",
+                ]:
+                    if os.path.exists(db_path):
+                        try:
+                            conn = sqlite3.connect(db_path)
+                            cur = conn.cursor()
+                            cur.execute("SELECT v.title FROM jobs j JOIN videos v ON j.video_id = v.id WHERE j.id = ?", (job_id,))
+                            row = cur.fetchone()
+                            if row and row[0]:
+                                base_t = row[0].split("|")[0].strip()
+                                resolved_title = f"{base_t} - Part {part_num}" if part_num else base_t
+                                break
+                        except Exception:
+                            pass
+                if not resolved_title and part_num:
+                    resolved_title = f"Clip Part {part_num}"
+
             if is_valid:
                 v = Video.objects.create(
                     file_key=key,
@@ -134,11 +168,15 @@ def run_watcher():
                     height=meta.get("height"),
                     status="queued",
                     queue_position=next_pos,
+                    yt_title=resolved_title or "",
+                    fb_caption=resolved_title or "",
+                    ig_caption=resolved_title or "",
                 )
+                imported_count += 1
                 ActivityLog.objects.create(
                     video_id=v.id,
                     event="detected",
-                    message=f"Detected and validated {name} ({v.width}x{v.height}, {v.duration_s}s)",
+                    message=f"Synced and validated {name} ({v.width}x{v.height}, {v.duration_s}s)" + (f" - '{resolved_title}'" if resolved_title else ""),
                 )
             else:
                 v = Video.objects.create(
@@ -159,6 +197,8 @@ def run_watcher():
                     event="invalid",
                     message=f"Validation failed for {name}: {reason}",
                 )
+
+    return imported_count
 
 
 def derive_overall_status(video: Video) -> str:

@@ -88,8 +88,13 @@ def videos_list_view(request):
 
 @require_POST
 def scan_inbox_view(request):
-    """Trigger manual scan of configured inbox storage."""
-    run_watcher()
+    """Trigger manual scan and sync of configured inbox storage."""
+    count = run_watcher()
+    if count > 0:
+        messages.success(request, f"Successfully synced and imported {count} new video(s) from storage!")
+    else:
+        messages.info(request, "Storage sync complete: No new video files found.")
+
     if request.headers.get("HX-Request") == "true":
         response = HttpResponse(status=200)
         response["HX-Refresh"] = "true"

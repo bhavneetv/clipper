@@ -36,8 +36,8 @@ def cron_trigger_view(request):
 
     # 1. Scan inbox for new videos
     try:
-        run_watcher()
-        actions.append("watcher_scanned")
+        new_cnt = run_watcher()
+        actions.append(f"watcher_scanned_{new_cnt}_new")
     except Exception as e:
         logger.error("Cron watcher error: %s", e)
         actions.append(f"watcher_error: {str(e)}")

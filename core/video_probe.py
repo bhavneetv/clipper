@@ -21,8 +21,9 @@ def probe_video(url: str, file_size_bytes: int = 0, file_key: Optional[str] = No
         metadata contains: duration_s, width, height, size_bytes
     """
     from core.storage import get_local_file_path
+    from core.settings_store import get_config_value
 
-    max_mb = getattr(settings, "MAX_FILE_MB", 50)
+    max_mb = float(get_config_value("max_file_mb", getattr(settings, "MAX_FILE_MB", 100)))
     max_bytes = max_mb * 1024 * 1024
 
     metadata: Dict[str, Any] = {
@@ -102,20 +103,22 @@ def probe_video(url: str, file_size_bytes: int = 0, file_key: Optional[str] = No
     if not video_stream:
         return False, "Missing video stream.", metadata
 
-    # Video codec check: h264
+    # Video codec check: h264, hevc, vp9, av1
     v_codec = video_stream.get("codec_name", "").lower()
-    if v_codec != "h264":
-        return False, f"Video codec must be h264 (found: {v_codec}).", metadata
+    allowed_v_codecs = {"h264", "hevc", "h265", "vp9", "av1"}
+    if v_codec not in allowed_v_codecs:
+        return False, f"Video codec must be h264 or compatible (found: {v_codec}).", metadata
 
-    # Audio check: must be aac
+    # Audio check: must have audio stream
     if not audio_stream:
         return False, "Missing audio stream (Shorts/Reels require audio).", metadata
 
     a_codec = audio_stream.get("codec_name", "").lower()
-    if a_codec != "aac":
-        return False, f"Audio codec must be aac (found: {a_codec}).", metadata
+    allowed_a_codecs = {"aac", "mp3", "opus", "vorbis", "flac"}
+    if a_codec not in allowed_a_codecs:
+        return False, f"Audio codec must be aac or compatible (found: {a_codec}).", metadata
 
-    # Dimensions check: vertical (height > width)
+    # Dimensions check: vertical (height > width) only if enforced
     width = video_stream.get("width")
     height = video_stream.get("height")
     if not width or not height:
@@ -124,17 +127,19 @@ def probe_video(url: str, file_size_bytes: int = 0, file_key: Optional[str] = No
     metadata["width"] = int(width)
     metadata["height"] = int(height)
 
-    if metadata["height"] <= metadata["width"]:
+    enforce_vertical = bool(get_config_value("enforce_vertical", False))
+    if enforce_vertical and metadata["height"] <= metadata["width"]:
         return False, f"Video is not vertical: height ({height}) must be greater than width ({width}).", metadata
 
-    # Duration check: <= 90s
+    # Duration check (default max: 300s / 5 minutes)
+    max_duration = float(get_config_value("max_duration_seconds", 300.0))
     duration_raw = fmt.get("duration") or video_stream.get("duration")
     if duration_raw:
         try:
             dur_decimal = Decimal(str(duration_raw)).quantize(Decimal("0.01"))
             metadata["duration_s"] = dur_decimal
-            if dur_decimal > Decimal("90.0"):
-                return False, f"Duration ({dur_decimal}s) exceeds 90 seconds limit.", metadata
+            if dur_decimal > Decimal(str(max_duration)):
+                return False, f"Duration ({dur_decimal}s) exceeds {max_duration} seconds limit.", metadata
         except Exception:
             pass
 

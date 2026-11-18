@@ -156,23 +156,38 @@ def list_inbox_videos(prefix: Optional[str] = None) -> List[Dict[str, Any]]:
                 api_secret=api_secret,
                 secure=True,
             )
-            folder = (prefix or "shorts/inbox").strip("/")
-            res = cloudinary.api.resources(
-                resource_type="video",
-                type="upload",
-                prefix=folder,
-                max_results=100,
-            )
-            for r in res.get("resources", []):
-                public_id = r.get("public_id", "")
-                filename = public_id.split("/")[-1] + "." + r.get("format", "mp4")
-                results.append({
-                    "name": filename,
-                    "key": f"cloudinary:{public_id}",
-                    "size": r.get("bytes", 0),
-                    "etag": str(r.get("version", "")),
-                    "created_at": r.get("created_at"),
-                })
+
+            # Support scanning all Cloudinary video uploads (including video_cutter/clips, shorts/inbox, etc.)
+            # If a specific prefix is passed, filter by that prefix; otherwise scan all non-sample user videos.
+            next_cursor = None
+            while True:
+                kwargs: Dict[str, Any] = {
+                    "resource_type": "video",
+                    "type": "upload",
+                    "max_results": 100,
+                }
+                if prefix:
+                    kwargs["prefix"] = prefix.strip("/")
+                if next_cursor:
+                    kwargs["next_cursor"] = next_cursor
+
+                res = cloudinary.api.resources(**kwargs)
+                for r in res.get("resources", []):
+                    public_id = r.get("public_id", "")
+                    if public_id.startswith("samples/"):
+                        continue
+                    filename = public_id.split("/")[-1] + "." + r.get("format", "mp4")
+                    results.append({
+                        "name": filename,
+                        "key": f"cloudinary:{public_id}",
+                        "size": r.get("bytes", 0),
+                        "etag": str(r.get("version", "")),
+                        "created_at": r.get("created_at"),
+                    })
+
+                next_cursor = res.get("next_cursor")
+                if not next_cursor or len(results) >= 500:
+                    break
         except Exception as e:
             logger.error("Error listing Cloudinary inbox items: %s", e)
         return results
